@@ -5,6 +5,11 @@ const text = value => typeof value === 'string' ? value : '';
 const timestamp = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
 const compareText = (a, b) => text(a).localeCompare(text(b), undefined, { sensitivity: 'base', numeric: true });
 
+export const deadlineSourceCurrent = job => !job?.latestPostingObservationId || job.latestPostingObservationId === job.postingObservationId;
+export const formatApplicationDeadline = value => Number.isFinite(Date.parse(value))
+  ? new Date(value).toLocaleString([], {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'})
+  : 'Date needs review';
+
 export function matchesApplicationFilter(job, filter = 'all') {
   if (filter === 'all' || filter === job.state) return true;
   if (filter === 'preparation') return ['imported', 'preparing'].includes(job.state);
@@ -27,7 +32,7 @@ export function applicationResults(jobs = [], { query = '', filter = 'all', sort
     if (sort === 'employer') order = compareText(a.job.employer, b.job.employer) || compareText(a.job.title, b.job.title);
     else if (sort === 'attention') order = (priority[a.job.state] ?? 8) - (priority[b.job.state] ?? 8);
     else if (sort === 'deadline') {
-      const deadline = job => job.deadlineUncertain === true ? Infinity : timestamp(job.deadline) || Infinity;
+      const deadline = job => job.deadlineUncertain === true || !deadlineSourceCurrent(job) ? Infinity : timestamp(job.deadline) || Infinity;
       const left = deadline(a.job), right = deadline(b.job);
       order = left === right ? 0 : left < right ? -1 : 1;
     }

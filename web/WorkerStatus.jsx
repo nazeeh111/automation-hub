@@ -20,6 +20,6 @@ export default function WorkerStatus({queryStatus,workspaceReady,campaign,onWork
   {view.error&&<p className="worker-read-error" role="alert">{view.error}{view.value?' The previous read is retained below.':''}</p>}
   {engine?.lastErrorCode&&<p className="worker-loop-error">A worker check failed at {when(engine.lastErrorAt)}. {engine.lastTickCompletedAt&&Date.parse(engine.lastTickCompletedAt)>Date.parse(engine.lastErrorAt)?'A later worker check completed. The earlier failure remains recorded.':'Review the saved queue before deciding how to recover.'} This is separate from individual application outcomes.</p>}
   {engine&&<details><summary>Worker check details</summary><dl><div><dt>Last check started</dt><dd>{when(engine.lastTickStartedAt)}</dd></div><div><dt>Last check completed</dt><dd>{when(engine.lastTickCompletedAt)}</dd></div>{engine.activeStartedAt&&<div><dt>Current work started</dt><dd>{when(engine.activeStartedAt)}</dd></div>}<div><dt>Worker started</dt><dd>{when(engine.startedAt)}</dd></div></dl><p>A completed worker check can mean waiting or checking the queue. Employer receipts establish application success. Status is from this read; refresh to check again.</p></details>}
-  <button className="worker-queue-link" onClick={onWorkspace} disabled={!workspaceReady}>Open application queue <span aria-hidden="true">→</span></button>
+  <button className="worker-queue-link" onClick={onWorkspace} disabled={!workspaceReady}>Open application queue</button>
  </section>;
 }

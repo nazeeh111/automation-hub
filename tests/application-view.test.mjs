@@ -20,3 +20,12 @@ test('review readiness rejects unbound, superseded and other-job packages while 
 test('application overview uses only requirements bound to the exact posting, candidate revision and identity',()=>{
  const binding={postingHash:'source-a',profileRevision:'candidate-a',jobIdentity:'identity-a'};const job={identity:'identity-a',posting:{sourceHash:'source-a'},requirementLedger:[{id:'current',binding},{id:'old-posting',binding:{...binding,postingHash:'source-old'}},{id:'old-candidate',binding:{...binding,profileRevision:'candidate-old'}},{id:'other-role',binding:{...binding,jobIdentity:'identity-other'}},{id:'unbound'}]};assert.deepEqual(currentRequirementEntries(job,'candidate-a').map(entry=>entry.id),['current']);assert.deepEqual(currentRequirementEntries(job,'candidate-b'),[]);assert.deepEqual(currentRequirementEntries({...job,postingObservationId:'adopted-a',latestPostingObservationId:'newer-b'},'candidate-a'),[]);
 });
+
+
+test('deadline sorting does not promote an earlier source date after a changed posting',()=>{
+ const jobs=[{id:'earlier-source',deadline:'2027-01-01',postingObservationId:'old-source',latestPostingObservationId:'new-source'},
+ {id:'current-source',deadline:'2027-03-01',postingObservationId:'current',latestPostingObservationId:'current'},
+ {id:'missing'}];
+ assert.deepEqual(applicationResults(jobs,{sort:'deadline'}).map(job=>job.id),['current-source','earlier-source','missing']);
+ assert.equal(jobs[0].deadline,'2027-01-01');assert.equal(jobs[0].postingObservationId,'old-source');
+});

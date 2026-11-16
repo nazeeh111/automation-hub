@@ -9,6 +9,7 @@ import {questionFingerprint,writingAnswerHash} from './writing-policy.mjs';
 import {deadlinePriority} from './posting-requirements.mjs';
 import { accountIdentity, tenantKey } from './accounts.mjs';
 import {PostingObservations} from './posting-observations.mjs';
+import {reasoningDecisionCurrent} from './reasoning-context.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(message,status=409)=>Object.assign(new Error(message),{status});
@@ -138,7 +139,7 @@ export class Engine {
       return this.store.put('campaign',{...campaign,status:'running',revision:(campaign.revision||0)+1});
     }
     if(name==='prepare') {
-      if(body.jobId) {const job=this.job(body.jobId);if(!['imported','failed','ready','needs_you'].includes(job.state))throw fail('This application cannot be prepared in its current state');if(job.state==='needs_you'&&this.store.list('decision').some(d=>(d.jobId===job.id||d.jobIds?.includes(job.id))&&d.state==='open'))throw fail('Resolve the saved decision first');this.store.put('job',{...job,preparationRequested:true,state:'imported',nextAction:'Queued for preparation'});}
+      if(body.jobId) {const job=this.job(body.jobId);if(!['imported','failed','ready','needs_you'].includes(job.state))throw fail('This application cannot be prepared in its current state');const open=this.store.list('decision').filter(d=>(d.jobId===job.id||d.jobIds?.includes(job.id))&&d.state==='open'),stale=open.filter(d=>d.type==='missing_fact'&&!reasoningDecisionCurrent(this.store,d,job));if(job.state==='needs_you'&&open.some(d=>!stale.includes(d)))throw fail('Resolve the saved decision first');this.store.transaction(()=>{for(const decision of stale)this.store.put('decision',{...decision,state:'superseded',supersededAt:now(),supersededReason:'The explicit preparation request replaced an earlier clarification context.'});this.store.put('job',{...job,preparationRequested:true,state:'imported',nextAction:'Queued for preparation'});});}
       else for(const job of this.store.list('job'))if(['imported','failed'].includes(job.state))this.store.put('job',{...job,preparationRequested:true,state:'imported',nextAction:'Queued for preparation'});
       return {queued:true};
     }
@@ -271,12 +272,13 @@ export class Engine {
     this.store.put('job',{...job,state:'preparing',preparationRequested:false,nextAction:'Read the posting and prepare a grounded resume'});
     try {
       const posting=await this.adapter.inspect(job,{policy:campaign.rules,profile,authorized:campaign.enabled&&campaign.status==='running',guard:()=>this.fence(job,campaign,true)});this.fence(job,campaign);
+      if(answerHash(profile)!==answerHash(this.store.get('profile','main')))throw new ApplicationHold('action_revoked','The candidate changed while the posting was read. Prepare this application again with the current profile.');
       const postingObservation=this.postings.record(job,posting,{adopt:true,reason:'preparation'});
       if(!posting.open) {this.store.put('job',{...this.job(job.id),state:'closed',title:posting.title||job.title,employer:posting.employer||job.employer,posting,deadline:posting.deadline||null,deadlineLabel:posting.deadlineLabel||null,deadlineUncertain:posting.deadlineUncertain===true,deadlineEvidence:posting.deadlineEvidence||[],nextAction:posting.expired?'Posting deadline passed; no application submitted':'Posting closed; no application submitted'});return {closed:true};}
       let tenant;try{tenant=tenantKey(job.url)}catch{tenant=new URL(job.url).hostname}
       if(job.posting?.sourceHash===posting.sourceHash)posting.documents=[...(posting.documents||[]),...(job.posting.documents||[]).filter(d=>d.page==='application')];
       job=this.store.put('job',{...this.job(job.id),deadline:posting.deadline||null,deadlineLabel:posting.deadlineLabel||null,deadlineUncertain:posting.deadlineUncertain===true,deadlineEvidence:posting.deadlineEvidence||[],title:posting.title,employer:posting.employer,portal:posting.portal,posting,tenant,nextAction:'Compare supported resume evidence'});
-      if(this.priorSubmissionResolver){let prior;try{prior=await this.priorSubmissionResolver(job,profile);}catch{prior={status:'unavailable'};}const observed=this.job(job.id);if(prior?.alreadyApplied&&reserved.has(observed.state))return {alreadyApplied:true};this.fence(job,campaign);job=this.store.put('job',{...observed,priorApplicationCheck:{status:prior?.status||'unknown',observedAt:now()}});if(prior?.alreadyApplied)throw new ApplicationHold('prior_application_uncertain','A previous application was reported but has no matching saved receipt. Reconcile before continuing.');}else job=this.store.put('job',{...job,priorApplicationCheck:{status:'unconfigured',observedAt:now()}});
+      if(this.priorSubmissionResolver){let prior;try{prior=await this.priorSubmissionResolver(job,profile);}catch{prior={status:'unavailable'};}if(answerHash(profile)!==answerHash(this.store.get('profile','main')))throw new ApplicationHold('action_revoked','The candidate changed while earlier applications were checked. Prepare this application again with the current profile.');const observed=this.job(job.id);if(prior?.alreadyApplied&&reserved.has(observed.state))return {alreadyApplied:true};this.fence(job,campaign);job=this.store.put('job',{...observed,priorApplicationCheck:{status:prior?.status||'unknown',observedAt:now()}});if(prior?.alreadyApplied)throw new ApplicationHold('prior_application_uncertain','A previous application was reported but has no matching saved receipt. Reconcile before continuing.');}else job=this.store.put('job',{...job,priorApplicationCheck:{status:'unconfigured',observedAt:now()}});
       const applicationLimitReport=this.reviewApplicationLimits(job,profile);if(!applicationLimitReport.allowed)return {waiting:true,applicationLimits:true};
       const pkg=job.selectedResumeId?await this.resumes.select(job,job.selectedResumeId):await this.resumes.prepare(job,{...profile,answers:{...profile.answers,...scopedAnswers(job,profile).answers}});this.fence(job,campaign);
       if(!pkg?.id||!pkg.verified||!pkg.hash||!pkg.finalPath)throw new ApplicationHold('resume_verification','The resume package did not pass document verification.');

@@ -1,0 +1,34 @@
+/* Hallmark · v2.0.0 · theme: brand · genre: modern-minimal · shape: app screen · scope: app · redesign: full · posture: restrained · nav: global and contextual workspace · footer: none · signature: exact application evidence */
+/* Hallmark · pre-emit critique: P4 H4 E3 S4 R4 V3 · weakest: execution, consolidate token ownership and bring the selected object beside its review controls */
+:root {
+  color-scheme: light;
+  --font-body: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-family:var(--font-body);
+  font-size:var(--text-body); line-height:1.5; font-weight:400; font-synthesis:none;
+  --font-display: 'Avenir Next',Avenir,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --display:var(--font-display);
+  --bg: #f6f7f9; --sidebar: #fff; --surface: #fff; --raised: #eef1f6;
+  --surface-input: #fff; --surface-hover: #f0f3f8;
+  --text: #1d2633; --secondary: #5d6977; --muted: #637080;
+  --line: #dce1e8; --line-soft: #e9edf2; --frame: #bdc6d3;
+  --field-border: #8090a6; --control-border: #8090a6;
+  --accent: #334ed3; --green: var(--accent); --green-hover: #243cba; --green-ink: #fff; --blue: var(--accent);
+  --positive-surface: #edf7f1; --positive-boundary: #88ad96; --positive-copy: #246345; --positive-muted: #3f7457;
+  --orange: #89550f; --warning-copy: #89550f; --caution-surface: #fff8eb; --caution-boundary: #b99b67; --caution-copy: #805216;
+  --red: #ae3543; --danger-copy: #ae3543; --negative-surface: #fff0f1; --negative-boundary: #bd7e85;
+  --document-paper: #fff; --document-surface: #f5f6f8; --document-backdrop: #e9edf2;
+  --document-ink: var(--text); --document-copy: var(--secondary); --document-rule: var(--line);
+  --document-boundary: var(--control-border); --document-accent: var(--accent); --document-hover: #edf0ff;
+  --flow-neutral: #8490a2; --flow-attested: #78618e;
+  --shadow-low: rgb(29 38 51 / .04); --shadow-overlay: rgb(29 38 51 / .14);
+  --sheet-backdrop: rgb(29 38 51 / .3); --modal-backdrop: rgb(29 38 51 / .38); --workspace-overlay: rgb(246 247 249 / .96);
+  --ease: cubic-bezier(.2,.8,.2,1); --header-height: 68px; --context-width: 208px;
+
+  --accent-ink:var(--surface); --selection-surface:#eef1ff; --selection-boundary:#c1cbf0; --selection-ink:#2943bd;
+  --information-surface:#f2f4fe; --information-boundary:#dfe4fb;
+  --diff-removed-surface:#f9e7e4; --diff-removed-boundary:#bc766e; --diff-added-surface:#e3f1e8; --diff-added-boundary:#538269;
+  --positive:var(--positive-copy); --canvas:var(--bg); --border:var(--line); --caution:var(--warning-copy); --caution-line:var(--caution-boundary);
+  --text-caption:12px; --text-label:13px; --text-body:15px; --text-title:21px; --text-heading:28px;
+  --radius-control:6px; --radius-panel:8px; --radius-overlay:10px; --dur-micro:140ms;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-7:28px; --space-8:32px; --space-9:36px; --space-10:40px; --space-11:44px; --space-12:48px; --space-16:64px;
+}

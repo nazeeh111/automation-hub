@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import PdfPreview from './PdfPreview.jsx';
 import { packagePostingCurrent } from './application-view.mjs';
 import './document-library.css';
@@ -34,6 +34,9 @@ export default function DocumentLibrary({
   const evidence = resumes.filter(document => document.mega);
   const headingId = useId();
   const [selection, setSelection] = useState(null);
+  const [chooserOpen, setChooserOpen] = useState(() => !window.matchMedia('(max-width:760px)').matches);
+  const chooser=useRef(null), previewHeading=useRef(null), focusIntent=useRef(null);
+  useEffect(()=>{const media=window.matchMedia('(max-width:760px)');const update=()=>{const moveFocus=media.matches&&chooser.current?.contains(document.activeElement);setChooserOpen(!media.matches);if(moveFocus)requestAnimationFrame(()=>chooser.current?.querySelector('summary')?.focus());};media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
 
   // Retain intent, never a document object from an earlier workspace response.
   // The owning App keys this component by workspace.
@@ -55,6 +58,8 @@ export default function DocumentLibrary({
   const approving = busy === 'reviewPackage';
   const approvalAllowed = pkg => typeof canApprove === 'function' && canApprove(pkg) === true;
   const activeKey = packet ? `package:${packet.id}` : activeSource ? `source:${activeSource.id}` : '';
+  const selectDocument=choice=>{focusIntent.current=`${choice.kind}:${choice.id}`;setSelection(choice);if(window.matchMedia('(max-width:760px)').matches)setChooserOpen(false);};
+  useLayoutEffect(()=>{const intent=focusIntent.current;if(!intent)return;focusIntent.current=null;if(intent!==activeKey)return;previewHeading.current?.focus({preventScroll:true});previewHeading.current?.scrollIntoView({block:'start',behavior:'instant'});},[selection,activeKey]);
 
   function renderSourceGroup({ title, description, documents }) {
     if (!documents.length) return null;
@@ -67,7 +72,7 @@ export default function DocumentLibrary({
           const active = activeKey === `source:${document.id}`;
           return <article className={`resume-card document-source-row${active ? ' is-selected' : ''}`} key={document.id}>
             <button className="document-select" type="button" aria-pressed={active}
-              onClick={() => setSelection({ kind: 'source', id: document.id })}>
+              onClick={() => selectDocument({ kind: 'source', id: document.id })}>
               <Icon name="file" size={20}/>
               <span><strong>{documentName(document)}</strong><small>
                 {document.format || ({'application/pdf':'PDF','text/markdown':'Markdown','text/plain':'Text','application/vnd.openxmlformats-officedocument.wordprocessingml.document':'DOCX'}[document.mime]) || 'Preserved source'}
@@ -97,7 +102,7 @@ export default function DocumentLibrary({
     </header>
     {demo && <p className="document-fixture-note">Rehearsal documents. These records stay separate from your real workspace.</p>}
     <div className="document-library-layout">
-      <aside className="document-library-sources" aria-label="Document selection">
+      <aside className="document-library-sources" aria-label="Document selection"><details ref={chooser} className="document-chooser" open={chooserOpen} onToggle={event=>setChooserOpen(event.currentTarget.open)}><summary><span><strong>Choose a document</strong><small>{selected?(packet?owningJob?.title||packet.name||'Application resume':documentName(activeSource)):'Originals and prepared versions'}</small></span><span className="document-chooser-count">{resumes.length+packages.length}</span></summary><div className="document-chooser-list">
         {renderSourceGroup({ title: 'Finished resumes', description: 'Starting points for an application. Every original stays intact.', documents: finished })}
         {renderSourceGroup({ title: 'Evidence-only sources', description: 'Mega resumes support factual matching. They are never the default upload.', documents: evidence })}
         {!resumes.length && <div className="document-library-empty"><Icon name="file" size={25}/><h3>Bring your strongest starting points</h3><p>Import a finished PDF, DOCX, Markdown or text resume. Add a mega resume separately as supporting evidence.</p><Button icon="upload" onClick={onImport}>Import resumes</Button></div>}
@@ -110,7 +115,7 @@ export default function DocumentLibrary({
             const active = activeKey === `package:${pkg.id}`;
             return <article className={`package-row document-version-row${active ? ' is-selected' : ''}`} key={pkg.id}>
               <button className="document-select" type="button" aria-pressed={active}
-                onClick={() => setSelection({ kind: 'package', id: pkg.id })}>
+                onClick={() => selectDocument({ kind: 'package', id: pkg.id })}>
                 <Icon name="file" size={20}/><span><strong>{job?.title || pkg.name || 'Application resume'}</strong><small>{job?.employer || 'Owning application unavailable'}</small></span><Icon name="chevron" size={16}/>
               </button>
               <Badge value={pkg.approved && current ? 'ready' : 'needs_you'}>{pkg.approved ? current ? 'Reviewed' : 'Reviewed for an earlier context' : pkg.verified === true ? 'Review needed' : 'Verification required'}</Badge>
@@ -118,16 +123,16 @@ export default function DocumentLibrary({
                 {pkg.verified === true && <a className="document-text-link" target="_blank" rel="noreferrer" href={fileUrl(pkg.id, '?variant=final')}>Preview document<Icon name="external" size={14}/></a>}
                 {job && <button className="document-text-link" type="button" onClick={() => onJob(job.id)}>Open application<Icon name="arrow" size={14}/></button>}
               </div>
-              <Button disabled={pkg.approved || !approvalAllowed(pkg)} busy={approving} onClick={() => onApprove(pkg.id)}>Approve document</Button>
+              {active ? <Button disabled={pkg.approved || !approvalAllowed(pkg)} busy={approving} onClick={() => onApprove(pkg.id)}>Approve document</Button> : <Button icon="file" onClick={() => selectDocument({kind:'package',id:pkg.id})}>Review document</Button>}
             </article>;
           })}
         </section>}
-      </aside>
+      </div></details></aside>
 
       <section className="document-dossier document-library-preview" aria-label="Selected document">
         {selected ? <>
           <header><div><span className="document-eyebrow">{packet ? 'Prepared application resume' : activeSource.mega ? 'Evidence-only source' : 'Finished source'}</span>
-            <h3>{packet ? owningJob?.title || packet.name || 'Application resume' : documentName(activeSource)}</h3>
+            <h3 ref={previewHeading} tabIndex={-1}>{packet ? owningJob?.title || packet.name || 'Application resume' : documentName(activeSource)}</h3>
             {packet && <p>{owningJob?.employer || 'Owning application unavailable'}</p>}</div>
             <Badge value={packet ? packet.approved && packetCurrent ? 'ready' : 'needs_you' : 'neutral'}>{packet ? packet.approved ? packetCurrent ? 'Reviewed' : 'Earlier context' : 'Review needed' : activeSource.mega ? 'Evidence only' : 'Preserved original'}</Badge>
           </header>

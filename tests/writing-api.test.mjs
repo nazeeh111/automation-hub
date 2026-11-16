@@ -6,6 +6,7 @@ import path from 'node:path';
 import {createHub} from '../server/index.mjs';
 import {questionFingerprint} from '../server/writing-policy.mjs';
 import {supportingControlFingerprint} from '../server/supporting-policy.mjs';
+import {reasoningContext,reasoningQuestionHash} from '../server/reasoning-context.mjs';
 
 async function fixture(t){
  const directory=await mkdtemp(path.join(tmpdir(),'hub-writing-api-'));
@@ -66,7 +67,7 @@ test('HTTP attachment review must name its exact displayed scope before any file
  assert.equal(f.ctx.store.get('job',f.job.id).state,'needs_you');assert.equal(f.ctx.store.list('run').length,0);
 });
 test('answering an older reasoning question does not release manual control without reconciliation',async t=>{
- const f=await fixture(t);f.ctx.store.put('decision',{id:'older-fact',jobId:f.job.id,type:'missing_fact',state:'open',question:'Which availability should be used?'});
+ const f=await fixture(t),decision={id:'older-fact',jobId:f.job.id,type:'missing_fact',state:'open',question:'Which availability should be used?'};f.ctx.store.put('decision',{...decision,reasoningBinding:{...reasoningContext(f.ctx.store,f.ctx.store.get('job',f.job.id)),questionHash:reasoningQuestionHash(decision)}});
  assert.equal((await f.request('/api/action',{action:'takeover',jobId:f.job.id})).response.status,200);
  const answered=await f.request('/api/action',{action:'resolveDecision',decisionId:'older-fact',answer:'Candidate-supplied June availability'});assert.equal(answered.response.status,200);
  const manual=f.ctx.store.get('job',f.job.id);assert.equal(manual.state,'manual');assert.equal(manual.preparationRequested,false);assert.equal(manual.reasoningAnswers['Which availability should be used?'],'Candidate-supplied June availability');assert.equal(f.ctx.store.list('run').length,0);

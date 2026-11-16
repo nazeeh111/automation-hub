@@ -78,7 +78,8 @@ test('selects a finished source unchanged, carries the actual posting and preser
   await addSource(ctx,'mega-evidence',projectResume('Sensor prototype',sensorLine,measuredLine),{mega:true});
   const pkg=await ctx.service.prepare(postingJob(ctx.store,job()),profile);
   assert.equal(observed.job.description,job().posting.text);
-  assert.deepEqual(observed.scopedAnswers,job().reasoningAnswers);
+  // Historical plaintext clarifications have no current candidate/source binding.
+  assert.deepEqual(observed.scopedAnswers,{});
   assert.equal(observed.resumes.length,2);
   assert(!observed.resumes.some(r=>r.id==='mega-evidence'));
   assert(observed.facts.some(f=>f.sources.some(s=>s.resumeId==='mega-evidence')));
