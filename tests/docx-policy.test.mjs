@@ -1,3 +1,4 @@
+import {postingJob} from './fixtures/posting.mjs';
 import '../server/runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -136,7 +137,7 @@ test('external local/HTTP images are held before renderer dispatch and never con
 test('held import preserves immutable original and safe raw facts, with no preview, package or renderer invocation',async t=>{
  const directory=await temporary(t),assertNoDispatch=await noDispatch(t,directory),store=new Store(directory);t.after(()=>store.close());store.put('profile',{id:'main',fullName:'Alex Example',email:'alex@example.invalid'});const service=new ResumeService({store,directory}),bytes=fixture({external:'file:///owned/synthetic-private-image.png'}).bytes();
  assert.equal((await service.import([{name:'Linked resume.docx',content:bytes.toString('base64')}])).imported,1);const resume=store.list('resume')[0];assert.equal(resume.renderStatus,'needs_resource_review');assert.equal(resume.renderCode,'docx_resource_review');assert.match(resume.renderError,/external image/);assert.equal(resume.previewPath,null);assert.match(resume.text,/simulated sensor prototype/);assert(store.list('fact').some(f=>f.text.includes('simulated sensor')));assert.deepEqual(await readFile(resume.originalPath),bytes);
- await assert.rejects(service.select({id:'synthetic-job'},resume.id),error=>error.code==='docx_resource_review');assert.equal(store.list('package').length,0);assert(!store.list('event').some(event=>event.type==='package_prepared'));await assertNoDispatch();
+ await assert.rejects(service.select(postingJob(store,{id:'synthetic-job'}),resume.id),error=>error.code==='docx_resource_review');assert.equal(store.list('package').length,0);assert(!store.list('event').some(event=>event.type==='package_prepared'));await assertNoDispatch();
 });
 test('LibreOffice receives an exact checked snapshot if a caller replaces its source after validation',async t=>{
  const directory=await temporary(t),file=path.join(directory,'original.docx'),output=path.join(directory,'preview.pdf'),record=path.join(directory,'snapshot.json'),executable=path.join(directory,'snapshot-renderer.mjs'),bytes=fixture().bytes(),changed=fixture({external:'file:///owned/image.png'}).bytes();await writeFile(file,bytes);

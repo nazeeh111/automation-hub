@@ -57,7 +57,7 @@ export function importJobs(store,text){
  return result;
 }
 function publicDocument(doc){if(!doc)return doc;const clean={};for(const [k,v] of Object.entries(doc)){if(k==='path'&&doc.type==='employer_confirmation'&&typeof v==='string'&&v.endsWith('.png'))clean.hasCapture=true;if(k==='structureContexts'||/path$|secret|password|token|credential|cookie|sessionRef/i.test(k))continue;if(k==='text'&&doc.mega){clean[k]=v;continue;}clean[k]=v&&typeof v==='object'?Array.isArray(v)?v.map(x=>x&&typeof x==='object'?publicDocument(x):x):publicDocument(v):v;}return clean;}
-const kinds=['profile','campaign','job','resume','fact','package','writingDraft','supportingDocument','usage','decision','decision_attention','event','account','automation','run','connection','account_config','verification_request','verification_receipt','inbox_proposal','discovery_source','discovery_candidate','discovery_favorite','discovery_rate'];
+const kinds=['profile','campaign','job','resume','fact','package','postingObservation','writingDraft','supportingDocument','usage','decision','decision_attention','event','account','automation','run','connection','account_config','verification_request','verification_receipt','inbox_proposal','discovery_source','discovery_candidate','discovery_favorite','discovery_rate'];
 async function readJSON(req){const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>72*1024*1024)throw fail('Request exceeds 72 MB.',413);chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{throw fail('Invalid JSON request.');}}
 
 export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(homedir(),'Library','Application Support','Automation Hub'),port=Number(process.env.HUB_PORT||4317),host='127.0.0.1',open=false,dev=false,modelRunner=null,engineAdapter=null,inboxRunner=null,inboxCommand,oauthFetcher,n8nFetcher,n8nResolver,n8nClock,discoveryOptions={},enableControl=false,openBrowser=nativeOpen}={}){
@@ -117,8 +117,9 @@ export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(h
   if(body.action==='resolveDecision'){const result=await resolveOwn(ctx,body);if(result)return result;}
   if(body.action==='selectResume'){
    const job=store.get('job',body.jobId);if(!job)throw fail('Application not found.',404);
+   if(typeof body.resumeId!=='string'||!body.resumeId||!store.get('resume',body.resumeId)||store.get('resume',body.resumeId).mega)throw fail('Choose an existing finished résumé. The mega résumé is evidence only.',400);
    if(['preparing','applying','uncertain','submitted','manual','interview','offer','rejected','assessment','cancelled','closed'].includes(job.state))throw fail('This application cannot change documents in its current state.',409);
-   if(!job.posting?.sourceHash){store.put('job',{...job,selectedResumeId:body.resumeId,state:'imported',preparationRequested:true,revision:job.revision+1,nextAction:'Read actual posting before preparing your selected resume'});return {queued:true};}
+   if(!job.posting?.sourceHash||job.latestPostingObservationId&&job.latestPostingObservationId!==job.postingObservationId){store.put('job',{...job,selectedResumeId:body.resumeId,state:'imported',preparationRequested:true,revision:job.revision+1,nextAction:'Read the current employer posting before preparing your selected resume'});for(const decision of store.list('decision'))if(decision.jobId===job.id&&decision.code==='posting_changed'&&decision.state==='open')store.put('decision',{...decision,state:'resolved',answer:'The selected finished résumé will be prepared after rereading the current posting',resolvedAt:now()});return {queued:true,postingRefreshRequired:true};}
    const fenced=store.put('job',{...job,state:'preparing',revision:job.revision+1,preparationRequested:false,nextAction:'Prepare your selected finished resume'});
    try{const pkg=await resumes.select(fenced,body.resumeId);const latest=store.get('job',job.id);
     if(latest.revision!==fenced.revision||latest.state!=='preparing')throw fail('This application changed during preparation. Open its current state before selecting a resume.',409);
@@ -177,13 +178,13 @@ export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(h
     if([...url.searchParams].length)throw fail('Runtime status does not accept query parameters.',400);
     const value={observedAt:now(),engine:context(workspace.demo).engine.runtimeStatus()};assertWorkspace();send(value);return;
    }
-   const historyRoute=url.pathname.match(/^\/api\/jobs\/([^/]+)\/events$/);
+   const historyRoute=url.pathname.match(/^\/api\/jobs\/([^/]+)\/(events|postings)$/);
    if(historyRoute&&req.method==='GET'){
     const expected=req.headers['x-hub-workspace'];if(!['real','fixture'].includes(expected))throw fail('Bind this history request to the real or fixture workspace.',400);
     if((expected==='fixture')!==workspace.demo)throw Object.assign(fail('The current workspace changed in another window. Refresh before reading its history.',409),{code:'WORKSPACE_CHANGED'});
     let jobId;try{jobId=decodeURIComponent(historyRoute[1]);}catch{throw fail('The application identifier is invalid.',400);}
     const options={};for(const [key,value] of url.searchParams){if(!['limit','before'].includes(key)||url.searchParams.getAll(key).length!==1)throw fail('Use history limit and before once each.',400);if(key==='limit'){if(!/^\d{1,3}$/.test(value))throw fail('Use a history page size from 1 to 100.',400);options.limit=Number(value);}else options.before=value;}
-    const value=context(workspace.demo).store.applicationEvents(jobId,options);assertWorkspace();send(publicDocument(value));return;
+    const ctx=context(workspace.demo),value=historyRoute[2]==='events'?ctx.store.applicationEvents(jobId,options):ctx.engine.postings.page(jobId,options);assertWorkspace();send(publicDocument(value));return;
    }
    if(url.pathname==='/api/discovery'&&req.method==='GET'){
     const allowed=new Set(['query','provider','sourceId','favoriteOnly','usOnly','availability','locationScope','location','workplace','roleType','discipline','sort','limit','offset']),filters={};

@@ -1,0 +1,81 @@
+/* Review workspace: real selected work, quiet controls, inspectable source. */
+.application-queue{min-width:0}
+.queue-views{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 20px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.queue-views button{display:inline-flex;align-items:center;gap:12px;min-height:40px;padding:8px 12px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--secondary);font:inherit;font-size:13px;cursor:pointer}
+.queue-views button:hover{background:var(--surface)}
+.queue-views button[aria-pressed=true]{color:var(--text);background:var(--surface);border-color:var(--line);font-weight:500}
+.queue-view-count{font-variant-numeric:tabular-nums;color:var(--secondary);font-size:12px}
+.queue-toolbar{gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.queue-toolbar .search-field{flex:1;min-width:200px;max-width:none}
+.queue-toolbar>select{max-width:208px}
+.queue-actions{display:flex;align-items:center;gap:8px}
+.queue-result-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0 0 12px}
+.queue-result-bar p{color:var(--secondary);font-size:12px;font-variant-numeric:tabular-nums}
+.queue-result-bar .button{min-height:36px;font-size:12px}
+.queue-sort-note{margin:0 0 16px;font-size:12px;color:var(--secondary);max-width:76ch;line-height:1.6}
+.queue-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;font-size:12px;color:var(--secondary)}
+.queue-pagination span{font-variant-numeric:tabular-nums}
+.inspector-discovery-return{display:flex;align-items:center;gap:8px;width:100%;padding:12px 24px;border:0;border-top:1px solid var(--line);background:var(--surface);color:var(--accent);font:inherit;font-size:13px;cursor:pointer;text-align:left}
+.inspector-discovery-return>svg:last-child{margin-left:auto}
+.application-review{min-width:0}
+.review-overview-heading{margin-bottom:16px}
+.review-overview-heading h4,.review-saved-questions h4,.review-requirements h4,.posting-history h4{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:-.015em;margin:0}
+.review-overview-heading p,.review-saved-questions>p,.review-requirements>p{color:var(--secondary);font-size:13px;line-height:1.65;margin:8px 0 0;max-width:76ch}
+.review-checks{border-block:1px solid var(--line)}
+.review-check{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:12px;row-gap:4px;padding:16px 0;border-bottom:1px solid var(--line)}
+.review-check:last-child{border-bottom:0}
+.review-check-icon{color:var(--secondary);padding-top:2px}
+.review-check-name{display:block;color:var(--secondary);font-size:12px;margin-bottom:4px}
+.review-check strong{display:block;font-size:14px;font-weight:500;line-height:1.5}
+.review-check p{color:var(--secondary);font-size:12px;line-height:1.65;margin-top:4px;max-width:76ch}
+.review-check button{grid-column:2;justify-self:start;display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:4px 0;background:none;border:0;color:var(--accent);font:inherit;font-size:12px;cursor:pointer}
+.review-check-waiting strong{color:var(--warning-copy,#8c570f)}
+.review-saved-questions{margin:20px 0 24px}
+.review-saved-questions h4{display:flex;align-items:center;gap:12px}
+.review-saved-questions h4 span{font:inherit;font-size:13px;color:var(--secondary);font-variant-numeric:tabular-nums}
+.review-saved-questions ul{list-style:none;padding:0;margin:12px 0 0}
+.review-saved-questions li{border-top:1px solid var(--line)}
+.review-saved-questions li button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;background:none;border:0;padding:16px 0;text-align:left;color:var(--text);font:inherit;cursor:pointer}
+.review-saved-questions li strong{font-size:13px;font-weight:500;line-height:1.5}
+.review-saved-questions li small{display:block;font-size:12px;line-height:1.6;color:var(--secondary);margin-top:4px}
+.review-saved-questions li svg{flex:none;color:var(--secondary)}
+.review-requirements{margin:24px 0}
+.review-requirement-list{display:grid;gap:16px;margin-top:16px}
+.review-requirement-list article{padding:16px;border:1px solid var(--line);border-radius:8px}
+.review-requirement-list article>div{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font-size:12px}
+.review-requirement-list strong{font-weight:500}
+.review-condition{color:var(--secondary)}
+.review-condition-eligible{color:var(--positive-copy)}
+.review-condition-ineligible,.review-condition-uncertain,.review-condition-unanswered{color:var(--warning-copy,#8c570f)}
+.review-requirement-list blockquote{margin:12px 0 0;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.review-requirement-list article>p{color:var(--secondary);font-size:12px;line-height:1.6;margin-top:12px}
+.posting-history{padding-bottom:24px;border-bottom:1px solid var(--line);min-width:0}
+.posting-history-heading{display:grid;gap:12px;margin-bottom:16px}
+.posting-history-heading p,.posting-history>p,.posting-change-notice p{font-size:12px;line-height:1.65;color:var(--secondary);margin:8px 0 0;max-width:76ch}
+.posting-history-heading button{display:inline-flex;align-items:center;justify-self:start;gap:8px;min-height:36px;padding:4px 0;border:0;background:none;color:var(--accent);font:inherit;font-size:12px;cursor:pointer}
+.posting-history button:disabled{opacity:.5;cursor:default}
+.posting-change-notice{padding:16px;border-left:3px solid #b57a27;background:#fff8ea;border-radius:0 8px 8px 0;margin:16px 0}
+.posting-change-notice>strong{display:block;font-size:14px;font-weight:500;color:#80500f}
+.posting-change-notice>button{min-height:40px;padding:8px 12px;margin-top:12px;border:1px solid #c5a269;border-radius:8px;background:#fff;color:#80500f;font:inherit;font-size:12px;cursor:pointer}
+.posting-observation-pair{display:grid;gap:16px;margin-top:16px}
+.posting-observation{padding:16px;border:1px solid var(--line);border-radius:8px;min-width:0;background:var(--surface)}
+.posting-observation h5,.posting-text-change h5{font-size:12px;font-weight:500;color:var(--secondary);margin:0 0 12px}
+.posting-observation>strong{display:block;font-size:14px;font-weight:500;line-height:1.5}
+.posting-observation>span,.posting-observation>time,.posting-observation>p{display:block;font-size:12px;line-height:1.6;color:var(--secondary);margin-top:4px}
+.posting-observation details,.posting-text-change{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.posting-observation summary,.posting-text-change summary{font-size:12px;color:var(--text);cursor:pointer;min-height:28px}
+.posting-observation pre,.posting-text-change pre{font:inherit;font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;margin:8px 0 0;padding:12px;background:var(--bg);border-radius:4px}
+.posting-observation dl{margin:8px 0 0;font-size:11px;line-height:1.6}
+.posting-observation dt{color:var(--secondary);margin-top:8px}
+.posting-observation dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.posting-observation details p,.posting-text-change p{font-size:12px;line-height:1.65;color:var(--secondary);margin:8px 0}
+.posting-observation a{display:inline-flex;align-items:center;gap:8px;color:var(--accent);font-size:12px;margin-top:12px}
+.posting-text-change>div{display:grid;gap:16px;margin-top:12px}
+.posting-text-change section{min-width:0}
+.posting-text-change section:first-child pre{border-left:2px solid #bc766e}
+.posting-text-change section:last-child pre{border-left:2px solid #538269}
+.posting-text-change del,.posting-text-change ins{display:inline;padding:0;margin:0;color:inherit;text-decoration:none;border:0}.posting-text-change del{background:#f9e7e4}.posting-text-change ins{background:#e3f1e8}
+.posting-history-error{color:var(--danger-copy,#a33939)!important}
+.posting-retention-note{font-size:11px!important;margin-top:16px!important}
+@media(max-width:760px){.queue-views{display:none}.queue-views button{min-height:44px;padding:8px;font-size:12px;gap:8px}.queue-toolbar .search-field{flex-basis:100%;min-width:0}.queue-toolbar>select{flex:1;min-width:0;max-width:none}.queue-actions{width:100%;gap:12px}.queue-actions>.button{flex:1;min-width:0;justify-content:center}.queue-actions{display:flex;align-items:center;gap:8px}
+.queue-result-bar{align-items:center}.queue-result-bar .button,.queue-pagination .button{min-height:44px}.queue-pagination{gap:8px;flex-wrap:wrap}.queue-pagination span{order:3;width:100%;text-align:center}.review-check button,.posting-history-heading button{min-height:44px}.inspector-discovery-return{min-height:44px;padding-inline:20px}}

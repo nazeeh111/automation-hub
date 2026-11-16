@@ -39,7 +39,7 @@ test('an outer tick rejection stays rejected and retains a constant private erro
 
 test('overlapping busy ticks retain the actual long operation rather than reporting it idle',async t=>{
  let entered,release;const started=new Promise(resolve=>entered=resolve),held=new Promise(resolve=>release=resolve);t.after(()=>release?.());
- const {store,engine}=await fixture(t,{adapter:{inspect:async()=>{entered();await held;return {open:false,title:'Synthetic role',employer:'Synthetic employer'};},close:async()=>{release();}}});
+ const {store,engine}=await fixture(t,{adapter:{inspect:async()=>{entered();await held;return {open:false,title:'Synthetic role',employer:'Synthetic employer',text:'This synthetic role is closed.',sourceHash:'synthetic-closed-source',sourceUrl:'https://jobs.lever.co/synthetic/long'};},close:async()=>{release();}}});
  store.put('job',{id:'long-job',identity:'synthetic-long',url:'https://jobs.lever.co/synthetic/long',title:'Synthetic role',employer:'Synthetic employer',state:'imported',preparationRequested:true,revision:0});
  const work=engine.tick();await started;const active=engine.runtimeStatus();assert.equal(active.busy,true);assert.equal(active.activePhase,'prepare');assert.equal(active.activeJobId,'long-job');assert.ok(Date.parse(active.activeStartedAt));
  assert.deepEqual(await engine.tick(),{busy:true});const overlap=engine.runtimeStatus();assert.equal(overlap.busy,true);assert.equal(overlap.activePhase,'prepare');assert.equal(overlap.activeJobId,'long-job');assert.equal(overlap.activeStartedAt,active.activeStartedAt);

@@ -1,3 +1,4 @@
+import {bindPreparedPosting} from './fixtures/posting.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -16,7 +17,7 @@ async function fixture(t,submit){
  const directory=await mkdtemp(path.join(tmpdir(),'hub-automation-audit-')),store=new Store(directory);
  const profile=store.put('profile',{id:'main',fullName:'Synthetic Candidate',email:recipient,answers:{}});
  store.put('resume',{id:'resume',mega:false});store.put('job',job());
- store.put('package',{id:'pkg',jobId:'job',resumeId:'resume',verified:true,approved:true,hash:'fixture-only',finalPath:'/synthetic-not-opened.pdf',profileRevision:profile.updatedAt,requirements:[]});
+ store.put('package',bindPreparedPosting(store,store.get('job','job'),{id:'pkg',jobId:'job',resumeId:'resume',verified:true,approved:true,hash:'fixture-only',finalPath:'/synthetic-not-opened.pdf',profileRevision:profile.updatedAt,requirements:[]}));
  const engine=new Engine({store,directory,resumes:{prepare:async()=>store.get('package','pkg')},adapter:{inspect:async j=>j.posting,submit:submit||(async()=>({status:'uncertain'})),close:async()=>{}}});
  t.after(async()=>{await engine.stop();store.close();await rm(directory,{recursive:true,force:true});});
  await engine.action('savePolicy',{rules:{maxApplications:10,maxPerEmployer:3,allowedHosts:['jobs.lever.co']}});await engine.action('enableCampaign',{confirmed:true});

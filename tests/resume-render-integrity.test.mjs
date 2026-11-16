@@ -1,3 +1,4 @@
+import {postingJob} from './fixtures/posting.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';import {existsSync} from 'node:fs';import {tmpdir} from 'node:os';import path from 'node:path';
 import {zipSync,strToU8} from 'fflate';
@@ -44,41 +45,41 @@ for(const [name,expected,actual] of [
 test('actual visible DOCX keeps its template bytes, qualifier and verified unchanged package',async t=>{
  const ctx=await fixture(t),bytes=docx(),resume=await add(ctx,bytes);
  assert.equal(resume.renderStatus,'ready');assert.deepEqual(await readFile(resume.originalPath),bytes);
- const pkg=await ctx.service.select(job,resume.id);assert.equal(pkg.verified,true);assert.equal(pkg.verification.text,true);assert.deepEqual(await readFile(pkg.finalPath),bytes);
+ const pkg=await ctx.service.select(postingJob(ctx.store,job),resume.id);assert.equal(pkg.verified,true);assert.equal(pkg.verification.text,true);assert.deepEqual(await readFile(pkg.finalPath),bytes);
 });
 test('actual hidden negation remains recoverable with a review status and cannot become a package or spend a comparison call',async t=>{
  const ctx=await fixture(t),bytes=docx({hidden:true}),resume=await add(ctx,bytes);
  assert.equal(resume.renderStatus,'needs_review');assert.equal(resume.renderCode,'render_integrity_review');assert(resume.previewPath);assert((await readFile(resume.previewPath)).subarray(0,5).equals(Buffer.from('%PDF-')));
  assert.deepEqual(await readFile(resume.originalPath),bytes);assert(resume.text.includes(quote));assert(ctx.store.list('fact').some(fact=>fact.text===quote));
- await assert.rejects(ctx.service.select(job,resume.id),/rendered-text mismatch/);
- await assert.rejects(ctx.service.prepare(job,ctx.store.get('profile','main')),/rendered-text review/);
+ await assert.rejects(ctx.service.select(postingJob(ctx.store,job),resume.id),/rendered-text mismatch/);
+ await assert.rejects(ctx.service.prepare(postingJob(ctx.store,job),ctx.store.get('profile','main')),/rendered-text review/);
  assert.equal(ctx.calls(),0);assert.equal(ctx.store.list('package').length,0);
 });
 test('actual legacy ready record still cannot bypass the final full-text package gate',async t=>{
  const ctx=await fixture(t),resume=await add(ctx,docx({hidden:true}));
  const legacy=ctx.store.put('resume',{...resume,renderStatus:'ready',renderCode:undefined,renderError:undefined});
- await assert.rejects(ctx.service.select(job,legacy.id),error=>error.renderCode==='render_integrity_review');assert.equal(ctx.store.list('package').length,0);
+ await assert.rejects(ctx.service.select(postingJob(ctx.store,job),legacy.id),error=>error.renderCode==='render_integrity_review');assert.equal(ctx.store.list('package').length,0);
 });
 test('actual hidden ownership qualifier is held without relying on a keyword blacklist',async t=>{
  const ctx=await fixture(t),resume=await add(ctx,docx({hidden:true,before:'I ',word:'independently',after:'tested the interface during the academic project.'}));
- assert.equal(resume.renderStatus,'needs_review');await assert.rejects(ctx.service.select(job,resume.id),/rendered-text mismatch/);
+ assert.equal(resume.renderStatus,'needs_review');await assert.rejects(ctx.service.select(postingJob(ctx.store,job),resume.id),/rendered-text mismatch/);
 });
 for(const [name,before,word,after] of [['date','Completed the academic project in ','2025','with controlled prototype tests.'],['qualifier','Built a ','simulated','academic prototype for controlled interface tests.']])test('actual hidden '+name+' cannot be marked verified',async t=>{
- const ctx=await fixture(t),resume=await add(ctx,docx({hidden:true,before,word,after}));assert.equal(resume.renderStatus,'needs_review');assert(resume.previewPath);await assert.rejects(ctx.service.select(job,resume.id),/rendered-text mismatch/);assert.equal(ctx.store.list('package').length,0);
+ const ctx=await fixture(t),resume=await add(ctx,docx({hidden:true,before,word,after}));assert.equal(resume.renderStatus,'needs_review');assert(resume.previewPath);await assert.rejects(ctx.service.select(postingJob(ctx.store,job),resume.id),/rendered-text mismatch/);assert.equal(ctx.store.list('package').length,0);
 });
 test('actual DOCX preserves ordinary Unicode, hyphens and physical line wraps',async t=>{
- const ctx=await fixture(t),bytes=docx({before:'I tested ',word:'candidate-authored',after:'non‑breaking prototypes with ﬁnite interface methods during an academic simulation. The controlled interface included ordinary Unicode and enough words to wrap across physical PDF lines.'}),resume=await add(ctx,bytes);assert.equal(resume.renderStatus,'ready',JSON.stringify({source:resume.text,preview:(await extract(resume.previewPath,'application/pdf')).text}));const pkg=await ctx.service.select(job,resume.id);assert.equal(pkg.verified,true);assert.deepEqual(await readFile(pkg.finalPath),bytes);
+ const ctx=await fixture(t),bytes=docx({before:'I tested ',word:'candidate-authored',after:'non‑breaking prototypes with ﬁnite interface methods during an academic simulation. The controlled interface included ordinary Unicode and enough words to wrap across physical PDF lines.'}),resume=await add(ctx,bytes);assert.equal(resume.renderStatus,'ready',JSON.stringify({source:resume.text,preview:(await extract(resume.previewPath,'application/pdf')).text}));const pkg=await ctx.service.select(postingJob(ctx.store,job),resume.id);assert.equal(pkg.verified,true);assert.deepEqual(await readFile(pkg.finalPath),bytes);
 });
 test('held-source-only facts are excluded from comparison and borrowing, while independently verified corroboration remains usable',async t=>{
  const ctx=await fixture(t),held=await add(ctx,docx({hidden:true}),'Held.docx',true);
  const original='- Assisted with interface tests for an academic simulation.',base=await add(ctx,Buffer.from('# Alex Example\n\n## Projects\n### Sensor prototype\n'+original+'\n'),'Base.md');
  const fact=ctx.store.list('fact').find(item=>item.text===quote);assert(fact);
- await assert.rejects(ctx.service.createPackage(job,base,{explanation:'Synthetic borrow',edits:[{original,replacement:quote,factIds:[fact.id]}]}),/no exact supporting source/);
+ await assert.rejects(ctx.service.createPackage(postingJob(ctx.store,job),base,{explanation:'Synthetic borrow',edits:[{original,replacement:quote,factIds:[fact.id]}]}),/no exact supporting source/);
  let observed;ctx.service.model.reason=async input=>{observed=input;throw new Error('Captured local comparison; no provider');};
- await assert.rejects(ctx.service.prepare(job,ctx.store.get('profile','main')),/Captured local comparison/);
+ await assert.rejects(ctx.service.prepare(postingJob(ctx.store,job),ctx.store.get('profile','main')),/Captured local comparison/);
  assert(!observed.facts.some(item=>item.id===fact.id));assert(!observed.resumes.some(item=>item.id===held.id));
  const corroboration=await add(ctx,docx(),'Corroborated.docx',true);assert.equal(corroboration.renderStatus,'ready');
- const pkg=await ctx.service.createPackage(job,base,{explanation:'Verified corroboration',edits:[{original,replacement:quote,factIds:[fact.id]}]});assert.equal(pkg.verified,true);
+ const pkg=await ctx.service.createPackage(postingJob(ctx.store,job),base,{explanation:'Verified corroboration',edits:[{original,replacement:quote,factIds:[fact.id]}]});assert.equal(pkg.verified,true);
  const refreshed=ctx.store.get('resume',corroboration.id);ctx.store.put('resume',{...refreshed,renderStatus:'needs_review',renderCode:'render_integrity_review'});
  assert.throws(()=>ctx.service.assertPackageCurrent(pkg),/no current usable document source/);
 });

@@ -1,3 +1,4 @@
+import {postingJob,bindPreparedPosting} from './fixtures/posting.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -96,7 +97,7 @@ for(const region of ['us','eu'])test(`legacy ${region} dispatched history still 
  store.put('profile',{...store.get('profile','main'),fullName:'Synthetic Candidate',email:'synthetic@example.test'});
  store.put('resume',{id:'synthetic-resume',mega:false});
  const job=oldJob(store,region,{state:'ready',packageId:'synthetic-package',posting:{title:'Engineering intern',employer:'Example Labs',text:'Engineering internship. Python preferred.',requirements:[],sourceUrl:url(region),sourceHash:'synthetic-posting',open:true}});
- store.put('package',{id:job.packageId,jobId:job.id,verified:true,approved:true,requirements:[]});
+ store.put('package',bindPreparedPosting(store,job,{id:job.packageId,jobId:job.id,verified:true,approved:true,requirements:[]}));
  const run=store.put('run',{id:'old-dispatch',jobId:job.id,identity:job.identity,state:'uncertain',dispatchedAt:'2026-11-14T12:00:00Z'});
  const original=bytes(store,'run',run.id);
  assert.equal(importJobs(store,url(region)+'/apply?utm_source=fixture').duplicates,1);

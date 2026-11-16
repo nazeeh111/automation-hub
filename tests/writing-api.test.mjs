@@ -20,7 +20,7 @@ async function fixture(t){
  const ctx=hub.context(false),profile=ctx.store.get('profile','main');ctx.store.put('connection',{id:'model',enabled:true,verified:true});
  await ctx.resumes.import([{name:'Synthetic finished.md',content:Buffer.from('# Alex Example\n\n## Projects\n### Sensor prototype\n- Built a simulated sensor prototype in Python with 12 controlled test cases.\n\n## Skills\nPython and signal processing').toString('base64')}]);
  let job=ctx.store.put('job',{id:'writing-job',identity:'synthetic-candidate|example|role-1',title:'Sensor engineering intern',employer:'Example Labs',url:'https://jobs.lever.co/example/role-1',state:'needs_you',revision:1,posting:{open:true,text:'Sensor engineering internship. Python is preferred. Assistance is permitted for written application answers.',sourceHash:'synthetic-posting'}});
- const pkg=await ctx.resumes.select(job,ctx.store.list('resume')[0].id);job=ctx.store.put('job',{...job,packageId:pkg.id});
+ const pkg=await ctx.resumes.select(job,ctx.store.list('resume')[0].id);job=ctx.store.put('job',{...ctx.store.get('job',job.id),packageId:pkg.id});
  const expected=question=>({jobId:job.id,questionHash:question.kind==='document'?supportingControlFingerprint(question):questionFingerprint(question),packageId:pkg.id,postingHash:ctx.store.get('job',job.id).posting.sourceHash,profileRevision:ctx.store.get('profile','main').updatedAt});
  return {directory,hub,ctx,request,cookie,profile,job,pkg,expected};
 }

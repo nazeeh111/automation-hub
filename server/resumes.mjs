@@ -12,6 +12,7 @@ import { fileAccepts } from './posting-requirements.mjs';
 import {readOriginalResume,resumeStructureCatalog,resumeStructureContexts,restructureResume} from './resume-structure.mjs';
 import {assertDocxResources} from './docx-policy.mjs';
 import {assertRenderedText} from './render-integrity.mjs';
+import {PostingObservations} from './posting-observations.mjs';
 
 export const hash=b=>createHash('sha256').update(b).digest('hex');
 export const normalize=s=>s.normalize('NFKC').replace(/\s+/g,' ').trim();
@@ -86,8 +87,8 @@ export function patchDocx(bytes,edits){
 }
 
 export async function renderText(text,output){
- const browser=await chromium.launch({headless:true});try{
-  const page=await browser.newPage();await page.route('**/*',r=>r.abort());
+ const browser=await chromium.launch({headless:true});let context;try{
+  context=await browser.newContext();const page=await context.newPage();await page.route('**/*',r=>r.abort());
   const content=text.split('\n').map((line,i)=>{
    const cleaned=line.replace(/^#+\s*/, '');if(!line.trim())return '<div class="space"></div>';
    if(i===0||/^# /.test(line))return `<h1>${esc(cleaned)}</h1>`;
@@ -96,7 +97,7 @@ export async function renderText(text,output){
   }).join('');
   await page.setContent(`<html><head><style>@page{size:Letter;margin:0.55in}a{color:inherit;text-decoration:none}body{font:10pt Arial,sans-serif;color:#111;line-height:1.28}h1{font-size:19pt;margin:0 0 8pt}h2{font-size:11pt;border-bottom:1px solid #555;margin:11pt 0 5pt}p{margin:3pt 0;white-space:pre-wrap}.space{height:3pt}</style></head><body>${content}</body></html>`);
   await page.pdf({path:output,format:'Letter',printBackground:true,tagged:true});
- }finally{await browser.close();}
+ }finally{try{await context?.close();}finally{await browser.close();}}
 }
 
 export async function renderDocx(file,output){
@@ -120,8 +121,9 @@ export async function renderDocx(file,output){
 }
 
 export class ResumeService {
- constructor({store,directory,model}){Object.assign(this,{store,directory,model});this.structureCache=new Map();}
- assertPackageCurrent(pkg,profile=this.store.get('profile','main')){
+ constructor({store,directory,model}){Object.assign(this,{store,directory,model});this.structureCache=new Map();this.postings=new PostingObservations({store});}
+ assertPackageCurrent(pkg,profile=this.store.get('profile','main'),job=this.store.get('job',pkg?.jobId)){
+  this.postings.assertPackage(pkg,job);
   if(!pkg||pkg.profileRevision!==profile?.updatedAt||pkg.profileHash&&pkg.profileHash!==hash(JSON.stringify(profile??null)))throw problem('The candidate profile changed after this resume was prepared. Prepare and review the document again.');
   const retained=normalize(pkg.text||''),sources=Array.isArray(pkg.sources)?pkg.sources:[],baseResumeIds=new Set([pkg.resumeId,...sources.map(source=>source.resumeId)].filter(Boolean));
   if([...baseResumeIds].some(id=>integrityHeld(this.store.get('resume',id))))throw problem('A retained resume source needs source/render review. Prepare from verified current evidence.');
@@ -200,6 +202,7 @@ export class ResumeService {
   const retainedConflict=this.store.list('fact').find(f=>(f.conflict||f.suppressed)&&f.sources.some(s=>s.resumeId===resume.id)&&normalize(text).includes(normalize(f.text)));
   if(retainedConflict)throw problem('The selected resume still contains an unresolved or rejected fact. Resolve the library conflict and import a corrected version, or replace that exact passage.','fact_conflict');
   if(changes.length&&resume.mime==='application/pdf')throw problem('PDF source layout cannot be edited safely. Choose unchanged reuse or import its editable DOCX/Markdown source.','editable_source_needed');
+  const postingObservation=this.postings.record(job,job.posting,{adopt:true,reason:'manual_selection'}),postingBinding=this.postings.binding(job,postingObservation);
   const id='package-'+randomUUID(),dir=path.join(this.directory,'packages',id);await mkdir(dir,{recursive:true,mode:0o700});let finalPath,previewPath;
   if(!changes.length&&resume.mime==='application/pdf'){finalPath=path.join(dir,'resume.pdf');await writeFile(finalPath,sourceBytes,{mode:0o600});previewPath=finalPath;}
   else if(resume.mime.includes('wordprocessingml')){const docx=path.join(dir,'resume.docx');await writeFile(docx,edits.length?patchDocx(structure.bytes,edits):structure.bytes,{mode:0o600});finalPath=docx;previewPath=path.join(dir,'resume.pdf');await renderDocx(finalPath,previewPath);}
@@ -217,6 +220,6 @@ export class ResumeService {
   }
   const size=(await stat(finalPath)).size;if(size>12*1024*1024)throw problem('Final resume exceeds 12 MB.');
   const finalBytes=await readFile(finalPath);await readOriginalResume(resume);if(preparationSnapshot!==sourceState())throw problem('The candidate or source evidence changed during document preparation. Prepare this application again before approval.');
-  const pkg={id,jobId:job.id,profileRevision:candidate?.updatedAt,profileHash:hash(JSON.stringify(candidate??null)),resumeId:resume.id,finalPath,previewPath,editableFinalPath,mime:finalPath.endsWith('.docx')?resume.mime:'application/pdf',hash:hash(finalBytes),text,explanation,evidenceCoverage,changes,structureProvenance:structure.provenance,requirements,sources:[{resumeId:resume.id,hash:resume.hash},...edits.flatMap(e=>e.factIds.map(factId=>({factId,quote:facts.find(fact=>fact.id===factId)?.text})))],verified:true,approved:!changes.length&&this.store.get('campaign','main')?.rules?.autoApproveUnchanged===true,verification:{text:true,candidateName:!!name.length,pages:parsed.pages,bytes:size,links:parsed.links||[],visualReview:'required'},createdAt:now()};this.assertPackageCurrent(pkg);this.store.put('package',pkg);this.store.event(job.id,'package_prepared',{packageId:id,resumeId:resume.id,hash:pkg.hash});return pkg;
+  const pkg={id,jobId:job.id,postingBinding,profileRevision:candidate?.updatedAt,profileHash:hash(JSON.stringify(candidate??null)),resumeId:resume.id,finalPath,previewPath,editableFinalPath,mime:finalPath.endsWith('.docx')?resume.mime:'application/pdf',hash:hash(finalBytes),text,explanation,evidenceCoverage,changes,structureProvenance:structure.provenance,requirements,sources:[{resumeId:resume.id,hash:resume.hash},...edits.flatMap(e=>e.factIds.map(factId=>({factId,quote:facts.find(fact=>fact.id===factId)?.text})))],verified:true,approved:!changes.length&&this.store.get('campaign','main')?.rules?.autoApproveUnchanged===true,verification:{text:true,candidateName:!!name.length,pages:parsed.pages,bytes:size,links:parsed.links||[],visualReview:'required'},createdAt:now()};this.assertPackageCurrent(pkg,undefined,this.store.get('job',job.id)||{...job,postingObservationId:postingObservation.id,latestPostingObservationId:postingObservation.id});this.store.put('package',pkg);this.store.event(job.id,'package_prepared',{packageId:id,resumeId:resume.id,hash:pkg.hash});return pkg;
  }
 }

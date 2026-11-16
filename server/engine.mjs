@@ -8,6 +8,7 @@ import {assessRequirements,resolveRequirements} from './requirements.mjs';
 import {questionFingerprint,writingAnswerHash} from './writing-policy.mjs';
 import {deadlinePriority} from './posting-requirements.mjs';
 import { accountIdentity, tenantKey } from './accounts.mjs';
+import {PostingObservations} from './posting-observations.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(message,status=409)=>Object.assign(new Error(message),{status});
@@ -55,6 +56,7 @@ function isMatch(evidence,job,profile,intent) {const artifacts=value=>JSON.strin
 export class Engine {
   constructor({store,directory,resumes,adapter,demo=false,intervalMs=2000,vault=null,accountAdapter=null,priorSubmissionResolver=null,supportingService=null}={}) {
     this.store=store;this.directory=directory;this.resumes=resumes;this.vault=vault;this.accountAdapter=accountAdapter;this.priorSubmissionResolver=priorSubmissionResolver;this.supportingService=supportingService;this.adapter=adapter||new BrowserAdapter({directory,accountAdapter});if(accountAdapter&&!this.adapter.accountAdapter)this.adapter.accountAdapter=accountAdapter;this.demo=demo;this.intervalMs=intervalMs;this.ownerId=randomUUID();this.lastWakeAt=Date.now();this.busy=false;this.stopping=false;this.lastWaitingReviewAt=null;
+    this.postings=new PostingObservations({store});
     this.workerStartedAt=now();this.lastTickStartedAt=null;this.lastTickCompletedAt=null;this.lastTickErrorAt=null;this.lastTickErrorCode=null;this.activePhase=null;this.activeJobId=null;this.activeStartedAt=null;
     if(this.adapter.fixture&&!demo) throw fail('A synthetic adapter requires an isolated demo engine',500);
     this.store.acquireWorker?.(this.ownerId);this.recover();
@@ -90,6 +92,7 @@ export class Engine {
     if(existing&&details.accountId&&!existing.jobIds?.includes(job.id))existing=this.store.put('decision',{...existing,jobIds:[...new Set([existing.jobId,...(existing.jobIds||[]),job.id])]});
     if(existing&&['application_limit_review','application_limit_reached','employer_limit'].includes(code)&&details.report)existing=this.store.put('decision',{...existing,details,title:message,message});
     if(existing&&code==='eligibility_review'&&details.requirements)existing=this.store.put('decision',{...existing,details,title:message,message});
+    if(existing&&code==='posting_changed')existing=this.store.put('decision',{...existing,details,title:message,message});
     if(existing&&details.packageId&&(existing.details?.packageId!==details.packageId||existing.details?.hash!==details.hash)){this.store.put('decision',{...existing,state:'superseded',supersededAt:now()});existing=null;}
     const decision=existing||this.store.put('decision',{id:randomUUID(),automationId:'internships',jobId:job.id,code,title:message,message,details,state:'open',scope:details.accountId?`account:${details.accountId}`:`job:${job.id}`,jobIds:[job.id],options:['Provide answer','Continue manually','Skip for now'],deadline:job.deadline||null});
     const nextState=code==='uncertain_submission'?'uncertain':current.state==='manual'?'manual':'needs_you';
@@ -174,7 +177,7 @@ export class Engine {
         const decision=this.store.get('decision',decisionId);
         if(!decision||decision.state!=='open'||decision.code!=='package_review'||decision.jobId!==job.id||decision.details?.packageId!==pkg.id||decision.details?.hash&&decision.details.hash!==pkg.hash)throw fail('This resume review refers to an older package. Review the current package instead.');
       }
-      if(approved)try{this.resumes.assertPackageCurrent?.(pkg,profile);}catch(error){if(error.code==='resume_review')throw fail(error.message);throw error;}
+      if(approved)try{this.postings.assertPackage(pkg,job);this.resumes.assertPackageCurrent?.(pkg,profile);}catch(error){if(error.code==='resume_review')throw fail(error.message);throw error;}
       const saved=this.store.put('package',{...pkg,approved,approvedAt:approved?now():null});
       for(const d of this.store.list('decision'))if(d.jobId===job.id&&d.code==='package_review'&&d.state==='open'&&d.details?.packageId===pkg.id&&(!d.details.hash||d.details.hash===pkg.hash))this.store.put('decision',{...d,state:'resolved',answer:approved?'approve':'decline',resolvedAt:now()});
       const other=this.store.list('decision').find(d=>(d.jobId===job.id||d.jobIds?.includes(job.id))&&d.state==='open');
@@ -268,6 +271,7 @@ export class Engine {
     this.store.put('job',{...job,state:'preparing',preparationRequested:false,nextAction:'Read the posting and prepare a grounded resume'});
     try {
       const posting=await this.adapter.inspect(job,{policy:campaign.rules,profile,authorized:campaign.enabled&&campaign.status==='running',guard:()=>this.fence(job,campaign,true)});this.fence(job,campaign);
+      const postingObservation=this.postings.record(job,posting,{adopt:true,reason:'preparation'});
       if(!posting.open) {this.store.put('job',{...this.job(job.id),state:'closed',title:posting.title||job.title,employer:posting.employer||job.employer,posting,deadline:posting.deadline||null,deadlineLabel:posting.deadlineLabel||null,deadlineUncertain:posting.deadlineUncertain===true,deadlineEvidence:posting.deadlineEvidence||[],nextAction:posting.expired?'Posting deadline passed; no application submitted':'Posting closed; no application submitted'});return {closed:true};}
       let tenant;try{tenant=tenantKey(job.url)}catch{tenant=new URL(job.url).hostname}
       if(job.posting?.sourceHash===posting.sourceHash)posting.documents=[...(posting.documents||[]),...(job.posting.documents||[]).filter(d=>d.page==='application')];
@@ -277,7 +281,10 @@ export class Engine {
       const pkg=job.selectedResumeId?await this.resumes.select(job,job.selectedResumeId):await this.resumes.prepare(job,{...profile,answers:{...profile.answers,...scopedAnswers(job,profile).answers}});this.fence(job,campaign);
       if(!pkg?.id||!pkg.verified||!pkg.hash||!pkg.finalPath)throw new ApplicationHold('resume_verification','The resume package did not pass document verification.');
       if(campaign.rules.autoApproveUnchanged===true&&(!pkg.changes||pkg.changes.length===0)&&this.store.get('resume',pkg.resumeId)&&!this.store.get('resume',pkg.resumeId).mega) {pkg.approved=true;pkg.approvalSource='campaign_unchanged_reuse';pkg.approvedAt=now();}
-      this.store.put('package',{...pkg,jobId:job.id,profileRevision:profile.updatedAt});
+      const postingBinding=this.postings.binding(job,postingObservation);
+      if(pkg.postingBinding&&Object.entries(postingBinding).some(([key,value])=>pkg.postingBinding[key]!==value))throw new ApplicationHold('posting_changed','The prepared résumé belongs to a different employer-posting version. Prepare this application again.',this.postings.changeDetails(this.job(job.id)));
+      pkg.postingBinding=postingBinding;this.store.put('package',{...pkg,jobId:job.id,profileRevision:profile.updatedAt});
+      for(const decision of this.store.list('decision'))if(decision.jobId===job.id&&decision.code==='posting_changed'&&decision.state==='open')this.store.put('decision',{...decision,state:'resolved',answer:'A new document was prepared against this observed posting version',resolvedObservationId:postingObservation.id,resolvedAt:now()});
       job=this.store.put('job',{...this.job(job.id),packageId:pkg.id});const requirementReport=this.reviewRequirements(job,pkg,profile);
       if(requirementReport.unresolvedMandatory.length)return {waiting:true,requirements:true};
       job=this.store.put('job',{...this.job(job.id),packageId:pkg.id,state:'ready',nextAction:pkg.approved?'Ready for enabled campaign':'Review the exact final resume',preparationRequested:false});
@@ -298,12 +305,13 @@ export class Engine {
       if(campaign.profileRevision&&campaign.profileRevision!==profile.updatedAt)throw new ApplicationHold('profile_changed','Your profile changed after campaign enablement. Re-enable the campaign with the current profile.');
       if(pkg?.profileRevision&&pkg.profileRevision!==profile.updatedAt)throw new ApplicationHold('profile_changed','Your profile changed after resume preparation. Prepare this application again before submitting.');
       if(!pkg?.verified||!pkg.approved||pkg.jobId!==job.id)throw new ApplicationHold('package_review','Review the exact final resume before it can be submitted.',{packageId:job.packageId,hash:pkg?.hash});
-      const guard=()=>{this.fence(job,campaign,true);this.resumes.assertPackageCurrent?.(pkg,this.store.get('profile','main'));};guard();
       if(!job.posting?.open||!job.posting?.sourceHash)throw new ApplicationHold('posting_required','Read and verify the actual open posting before submitting.');
+      const guard=()=>{this.fence(job,campaign,true);this.postings.assertPackage(pkg,this.job(job.id));this.resumes.assertPackageCurrent?.(pkg,this.store.get('profile','main'));};guard();
       const refreshed=await this.adapter.inspect(job,{policy:campaign.rules,profile,authorized:true,guard});guard();
-      if(refreshed.title!==job.title||refreshed.employer!==job.employer)throw new ApplicationHold('posting_changed','The employer or role changed after preparation. Review the selected posting before proceeding.');
+      const refreshedObservation=this.postings.record(job,refreshed,{adopt:!refreshed.open,reason:'submission_check'});
+      if(refreshed.title!==job.title||refreshed.employer!==job.employer)throw new ApplicationHold('posting_changed','The employer or role changed after preparation. Review the saved source versions before proceeding.',this.postings.changeDetails(this.job(job.id)));
       if(!refreshed.open){this.store.put('job',{...this.job(job.id),state:'closed',posting:refreshed,deadline:refreshed.deadline||null,deadlineLabel:refreshed.deadlineLabel||null,deadlineUncertain:refreshed.deadlineUncertain===true,deadlineEvidence:refreshed.deadlineEvidence||[],nextAction:refreshed.expired?'Posting deadline passed before submission; no application submitted':'Posting closed before submission; no application submitted'});return {closed:true};}
-      if(refreshed.sourceHash!==job.posting.sourceHash||refreshed.title!==job.title||refreshed.employer!==job.employer)throw new ApplicationHold('posting_changed','The employer posting changed after preparation. Prepare it again before submitting.');
+      if(refreshed.sourceHash!==job.posting.sourceHash||refreshedObservation.id!==job.postingObservationId)throw new ApplicationHold('posting_changed','The employer posting changed after preparation. Review the saved source versions and prepare it again before submitting.',this.postings.changeDetails(this.job(job.id)));
       const requirementReport=this.reviewRequirements({...job,posting:refreshed},pkg,profile);if(requirementReport.unresolvedMandatory.length)return {waiting:true,requirements:true};
       const applicationLimitReport=this.reviewApplicationLimits({...job,posting:refreshed},profile);if(!applicationLimitReport.allowed)return {waiting:true,applicationLimits:true};
       const host=new URL(job.url).hostname;

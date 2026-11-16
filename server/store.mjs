@@ -22,6 +22,7 @@ export class Store {
       CREATE UNIQUE INDEX IF NOT EXISTS identity_unique ON documents(kind,identity) WHERE identity IS NOT NULL;
       CREATE INDEX IF NOT EXISTS events_by_application_v2 ON documents(${eventApplication}) WHERE kind='event';
       CREATE INDEX IF NOT EXISTS events_by_sequence ON documents(kind) WHERE kind='event';
+      CREATE INDEX IF NOT EXISTS posting_observations_by_job ON documents(json_extract(body,'$.jobId'),json_extract(body,'$.jobIdentity')) WHERE kind='postingObservation';
       CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);`);
     this.db.prepare('INSERT OR IGNORE INTO metadata VALUES(?,?)').run('schema','1');
     this.db.prepare('INSERT OR IGNORE INTO metadata VALUES(?,?)').run('state_revision','0');
@@ -70,6 +71,7 @@ export class Store {
     const previous=this.get(kind,document.id);
     if (kind==='job' && previous?.identity && document.identity!==previous.identity) throw fail('Application identity cannot be changed');
     if (kind==='event' && previous) throw fail('Recorded events are immutable');
+    if (kind==='postingObservation' && previous) throw fail('Recorded employer posting versions are immutable');
     const saved={...document,createdAt:previous?.createdAt||document.createdAt||now(),updatedAt:now()};
     try { this.db.prepare('INSERT INTO documents(kind,id,identity,body) VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET identity=excluded.identity,body=excluded.body').run(kind,saved.id,(kind==='job'||kind==='account')?saved.identity||null:null,JSON.stringify(saved)); }
     catch(error) { if(String(error.message).includes('UNIQUE')) throw fail('This application or account is already recorded'); throw error; }
@@ -77,7 +79,7 @@ export class Store {
     return saved;
   }
   revision(){return Number(this.db.prepare("SELECT value FROM metadata WHERE key='state_revision'").get()?.value||0);}
-  remove(kind,id) { if(kind==='event'||kind==='job') throw fail('Application history cannot be deleted through the queue'); const result=this.db.prepare('DELETE FROM documents WHERE kind=? AND id=?').run(kind,id);if(result.changes)this.db.prepare("UPDATE metadata SET value=CAST(value AS INTEGER)+1 WHERE key='state_revision'").run(); }
+  remove(kind,id) { if(kind==='event'||kind==='job'||kind==='postingObservation') throw fail('Application history cannot be deleted through the queue'); const result=this.db.prepare('DELETE FROM documents WHERE kind=? AND id=?').run(kind,id);if(result.changes)this.db.prepare("UPDATE metadata SET value=CAST(value AS INTEGER)+1 WHERE key='state_revision'").run(); }
   transaction(fn) {
     if(this.transactionDepth) return fn();
     this.db.exec('BEGIN IMMEDIATE'); this.transactionDepth=1;

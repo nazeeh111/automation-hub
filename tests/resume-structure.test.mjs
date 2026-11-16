@@ -1,3 +1,4 @@
+import {postingJob} from './fixtures/posting.mjs';
 import '../server/runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,7 +66,7 @@ test('DOCX reordering preserves original paragraph XML, styles, numbering and re
 async function fixture(t){const directory=await mkdtemp(path.join(tmpdir(),'hub-structure-')),store=new Store(directory);store.put('profile',{id:'main',fullName:'Alex Example',email:'alex@example.invalid'});store.put('campaign',{...store.get('campaign','main'),rules:{autoApproveUnchanged:true}});t.after(async()=>{store.close();await rm(directory,{recursive:true,force:true});});return {directory,store};}
 test('a rendered unchanged package rejects later retained source conflicts and rejections without broad library invalidation',async t=>{
  const ctx=await fixture(t),service=new ResumeService(ctx);assert.equal((await service.import([{name:'Finished.md',content:Buffer.from(markdown).toString('base64')}])).imported,1);
- const source=ctx.store.list('resume')[0],originalBytes=await readFile(source.originalPath),pkg=await service.select({id:'current-package'},source.id);
+ const source=ctx.store.list('resume')[0],originalBytes=await readFile(source.originalPath),pkg=await service.select(postingJob(ctx.store,{id:'current-package'}),source.id);
  assert.equal(service.assertPackageCurrent(pkg),pkg);assert.match((await extract(pkg.previewPath,'application/pdf')).text,/12 controlled simulation cases/);
  ctx.store.put('fact',{id:'unrelated-new-fact',text:'Measured 99 unrelated cases.',sources:[{resumeId:'unrelated-resume'}],conflict:true,suppressed:true});assert.equal(service.assertPackageCurrent(pkg),pkg,'A different source fact must not invalidate the prepared document');
  const retained=ctx.store.list('fact').find(fact=>fact.text.includes('Measured signal noise'));
@@ -74,13 +75,13 @@ test('a rendered unchanged package rejects later retained source conflicts and r
 });
 test('prepared package validity follows retained passages rather than every fact in its base resume',async t=>{
  const ctx=await fixture(t),service=new ResumeService(ctx);assert.equal((await service.import([{name:'Finished.md',content:Buffer.from(markdown).toString('base64')}])).imported,1);
- const source=ctx.store.list('resume')[0],catalog=resumeStructureCatalog(source,Buffer.from(markdown)),pkg=await service.createPackage({id:'selected-package'},source,{explanation:'Retain the sensor project only.',structureEdits:selection(catalog,{omitWeb:true})});
+ const source=ctx.store.list('resume')[0],catalog=resumeStructureCatalog(source,Buffer.from(markdown)),pkg=await service.createPackage(postingJob(ctx.store,{id:'selected-package'}),source,{explanation:'Retain the sensor project only.',structureEdits:selection(catalog,{omitWeb:true})});
  assert(!pkg.text.includes('simulated JavaScript'));const omitted=ctx.store.list('fact').find(fact=>fact.text.includes('simulated JavaScript'));ctx.store.put('fact',{...omitted,conflict:true,suppressed:true});assert.equal(service.assertPackageCurrent(pkg),pkg);
 });
 test('borrowed retained evidence is checked after preparation even when it came only from a mega source',async t=>{
  const ctx=await fixture(t),service=new ResumeService(ctx),base='# Alex Example\n## Projects\n### Sensor prototype\nAcademic project | 2026\n- Built a simulated sensor prototype in Python.\n## Skills\nPython\n',mega=base.replace('Built a simulated sensor prototype in Python.','Measured signal noise across 12 controlled simulation cases.');
  assert.equal((await service.import([{name:'Finished.md',content:Buffer.from(base).toString('base64')},{name:'Mega.md',content:Buffer.from(mega).toString('base64'),mega:true}])).imported,2);
- const source=ctx.store.list('resume').find(item=>!item.mega),fact=ctx.store.list('fact').find(item=>item.text.includes('Measured signal noise')),pkg=await service.createPackage({id:'borrowed-package'},source,{explanation:'Borrow exact simulation evidence.',edits:[{original:'- Built a simulated sensor prototype in Python.',replacement:fact.text,factIds:[fact.id]}]});
+ const source=ctx.store.list('resume').find(item=>!item.mega),fact=ctx.store.list('fact').find(item=>item.text.includes('Measured signal noise')),pkg=await service.createPackage(postingJob(ctx.store,{id:'borrowed-package'}),source,{explanation:'Borrow exact simulation evidence.',edits:[{original:'- Built a simulated sensor prototype in Python.',replacement:fact.text,factIds:[fact.id]}]});
  assert.equal(service.assertPackageCurrent(pkg),pkg);assert(pkg.sources.some(item=>item.factId===fact.id&&item.quote===fact.text));assert.match((await extract(pkg.previewPath,'application/pdf')).text,/12 controlled simulation cases/);
  for(const state of [{suppressed:true},{conflict:true}]){ctx.store.put('fact',{...fact,...state});assert.throws(()=>service.assertPackageCurrent(pkg),error=>error.code==='resume_review');ctx.store.put('fact',fact);}
  ctx.store.put('fact',{...fact,text:fact.text.replace('12','99')});assert.throws(()=>service.assertPackageCurrent(pkg),error=>error.code==='resume_review');ctx.store.put('fact',fact);
@@ -88,7 +89,7 @@ test('borrowed retained evidence is checked after preparation even when it came 
 });
 test('prepared package captures full initial profile bytes and detects changes even without a new revision timestamp',async t=>{
  const ctx=await fixture(t),service=new ResumeService(ctx);ctx.store.put('profile',{...ctx.store.get('profile','main'),updatedAt:'2026-11-14T12:00:00Z',availability:{start:'2027-05-01'}});assert.equal((await service.import([{name:'Finished.md',content:Buffer.from(markdown).toString('base64')}])).imported,1);
- const profile=ctx.store.get('profile','main'),pkg=await service.select({id:'profile-package'},ctx.store.list('resume')[0].id);assert.equal(pkg.profileHash,hash(JSON.stringify(profile)));assert.equal(service.assertPackageCurrent(pkg,profile),pkg);
+ const profile=ctx.store.get('profile','main'),pkg=await service.select(postingJob(ctx.store,{id:'profile-package'}),ctx.store.list('resume')[0].id);assert.equal(pkg.profileHash,hash(JSON.stringify(profile)));assert.equal(service.assertPackageCurrent(pkg,profile),pkg);
  // Simulate same-millisecond persistence or restored bytes without letting Store.put create a fresh timestamp.
  const persistSnapshot=value=>ctx.store.db.prepare('UPDATE documents SET body=? WHERE kind=? AND id=?').run(JSON.stringify(value),'profile','main');
  const changed={...profile,availability:{start:'2027-06-01'}};persistSnapshot(changed);assert.equal(ctx.store.get('profile','main').updatedAt,pkg.profileRevision);assert.throws(()=>service.assertPackageCurrent(pkg),error=>error.code==='resume_review'&&/profile changed/.test(error.message));assert.throws(()=>service.assertPackageCurrent(pkg,changed),error=>error.code==='resume_review');
@@ -96,13 +97,13 @@ test('prepared package captures full initial profile bytes and detects changes e
 });
 test('actual DOCX render verifies the reordered final, exact retained links and explicit review requirement',async t=>{
  const ctx=await fixture(t),f=docxFixture(),service=new ResumeService(ctx);const imported=await service.import([{name:'Finished.docx',content:f.bytes.toString('base64')}]);assert.equal(imported.imported,1,JSON.stringify(imported));const source=ctx.store.list('resume')[0],catalog=resumeStructureCatalog(source,f.bytes);
- const pkg=await service.createPackage({id:'job'},source,{explanation:'Prioritize the original sensor evidence.',structureEdits:selection(catalog,{omitWeb:true})});
+ const pkg=await service.createPackage(postingJob(ctx.store,{id:'job'}),source,{explanation:'Prioritize the original sensor evidence.',structureEdits:selection(catalog,{omitWeb:true})});
  assert.equal(pkg.verified,true);assert.equal(pkg.approved,false);assert.equal(pkg.structureProvenance[0].sourceHash,source.hash);assert.deepEqual(await readFile(source.originalPath),f.bytes);
  const rendered=await extract(pkg.previewPath,'application/pdf');assert.match(rendered.text,/12 controlled simulation cases/);assert.match(rendered.text,/simulated sensor prototype/);assert(!rendered.text.includes('Web prototype'));assert.deepEqual(rendered.links,['https://example.invalid/sensor']);assert.equal(pkg.hash,hash(await readFile(pkg.finalPath)));
 });
 test('resume preparation supplies source IDs to reasoning and renders its bounded structure operation',async t=>{
  const ctx=await fixture(t);let observed;const service=new ResumeService({...ctx,model:{async reason(input){observed=input;return {chosenResumeId:input.resumes[0].id,explanation:'Place the sensor project first while retaining its source.',edits:[],structureEdits:selection(input.structureCatalog[0]),requirements:[],questions:[]};}}});await service.import([{name:'Finished.md',content:Buffer.from(markdown).toString('base64')}]);
- const pkg=await service.prepare({id:'job',title:'Sensor engineering intern',posting:{text:'Sensor engineering using Python and signal processing.',sourceHash:'posting'}},ctx.store.get('profile','main'));assert(observed.structureCatalog[0].supported);assert.equal(pkg.approved,false);const rendered=await extract(pkg.previewPath,'application/pdf');assert(rendered.text.indexOf('Sensor prototype')<rendered.text.indexOf('Web prototype'));assert.match(rendered.text,/simulated JavaScript prototype/);assert(!rendered.text.includes('8 controlled web cases'));
+ const pkg=await service.prepare(postingJob(ctx.store,{id:'job',title:'Sensor engineering intern',posting:{text:'Sensor engineering using Python and signal processing.',sourceHash:'posting'}}),ctx.store.get('profile','main'));assert(observed.structureCatalog[0].supported);assert.equal(pkg.approved,false);const rendered=await extract(pkg.previewPath,'application/pdf');assert(rendered.text.indexOf('Sensor prototype')<rendered.text.indexOf('Web prototype'));assert.match(rendered.text,/simulated JavaScript prototype/);assert(!rendered.text.includes('8 controlled web cases'));
 });
 test('changed source bytes and symbolic source replacements cannot be reused under an imported fingerprint',async t=>{
  const ctx=await fixture(t),file=path.join(ctx.directory,'source.md');await writeFile(file,markdown);const source={id:'source',originalPath:file,mime:'text/markdown',hash:hash(Buffer.from(markdown)),text:markdown};assert.deepEqual(await readOriginalResume(source),Buffer.from(markdown));await writeFile(file,markdown.replace('12 controlled','99 controlled'));await assert.rejects(readOriginalResume(source),error=>error.code==='resume_review'&&/changed after import/.test(error.message));
@@ -110,13 +111,13 @@ test('changed source bytes and symbolic source replacements cannot be reused und
 });
 test('a candidate change during real document preparation cannot relabel an older person’s document as current',async t=>{
  const ctx=await fixture(t),service=new ResumeService(ctx);await service.import([{name:'Finished.md',content:Buffer.from(markdown).toString('base64')}]);
- const pending=service.select({id:'job'},ctx.store.list('resume')[0].id);ctx.store.put('profile',{...ctx.store.get('profile','main'),fullName:'Different Candidate'});
+ const pending=service.select(postingJob(ctx.store,{id:'job'}),ctx.store.list('resume')[0].id);ctx.store.put('profile',{...ctx.store.get('profile','main'),fullName:'Different Candidate'});
  await assert.rejects(pending,error=>error.code==='resume_review'&&/changed during document preparation/.test(error.message));assert.equal(ctx.store.list('package').length,0);assert(!ctx.store.list('event').some(event=>event.type==='package_prepared'));
 });
 test('reasoning results are revoked when their candidate or evidence library changes while waiting',async t=>{
  for(const mutation of ['profile','facts','library']){
   const ctx=await fixture(t);let entered,finish;const started=new Promise(resolve=>entered=resolve),service=new ResumeService({...ctx,model:{async reason(input){entered();return new Promise(resolve=>finish=()=>resolve({chosenResumeId:input.resumes[0].id,explanation:'Old snapshot.',edits:[],requirements:[],questions:[]}));}}});await service.import([{name:'Finished.md',content:Buffer.from(markdown).toString('base64')}]);
-  const pending=service.prepare({id:'job',title:'Sensor engineering intern',posting:{text:'Python sensor work.',sourceHash:'posting'}},ctx.store.get('profile','main'));await started;
+  const pending=service.prepare(postingJob(ctx.store,{id:'job',title:'Sensor engineering intern',posting:{text:'Python sensor work.',sourceHash:'posting'}}),ctx.store.get('profile','main'));await started;
   if(mutation==='profile')ctx.store.put('profile',{...ctx.store.get('profile','main'),location:'Candidate-supplied new location'});
   if(mutation==='facts'){const fact=ctx.store.list('fact')[0];ctx.store.put('fact',{...fact,suppressed:true});}
   if(mutation==='library')ctx.store.put('resume',{...ctx.store.list('resume')[0],id:'new-variant',name:'New supplied variant'});
@@ -151,7 +152,7 @@ test('actual matching native DOCX templates still borrow same-project evidence a
  const imported=await service.import([{name:'Finished native.docx',content:first.bytes.toString('base64')},{name:'Mega native.docx',content:second.bytes.toString('base64'),mega:true}]);assert.equal(imported.imported,2,JSON.stringify(imported));
  const resume=ctx.store.list('resume').find(item=>!item.mega),fact=ctx.store.list('fact').find(item=>item.text===nativeMetric);
  assert.equal(resumePassageContext(resume,nativeOriginal),fact.sources[0].context);
- const pkg=await service.createPackage({id:'job'},resume,{explanation:'Use the same native project’s measured simulation evidence.',edits:[{original:nativeOriginal,replacement:nativeMetric,factIds:[fact.id]}]});
+ const pkg=await service.createPackage(postingJob(ctx.store,{id:'job'}),resume,{explanation:'Use the same native project’s measured simulation evidence.',edits:[{original:nativeOriginal,replacement:nativeMetric,factIds:[fact.id]}]});
  const rendered=await extract(pkg.previewPath,'application/pdf');assert.match(rendered.text,/12 controlled simulation cases/);assert.match(rendered.text,/Academic project \| 2026/);assert.equal(pkg.verified,true);assert.equal(pkg.approved,false);
  assert.deepEqual(await readFile(resume.originalPath),first.bytes);
  const final=unzipSync(await readFile(pkg.finalPath));for(const file of ['word/styles.xml','word/numbering.xml','word/_rels/document.xml.rels'])assert.deepEqual(final[file],first.files[file]);
@@ -183,5 +184,5 @@ test('unsupported native table layouts cannot use date fallback, while unchanged
  f.files['word/document.xml']=strToU8(strFromU8(f.files['word/document.xml']).replace(f.projectXml,'<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w="9000"/></w:tblGrid><w:tr><w:tc><w:tcPr/>'+f.projectXml+'</w:tc></w:tr></w:tbl>'));
  const bytes=Buffer.from(zipSync(f.files)),imported=await service.import([{name:'Native table.docx',content:bytes.toString('base64')}]);assert.equal(imported.imported,1,JSON.stringify(imported));const resume=ctx.store.list('resume')[0];
  assert.deepEqual(resume.structureContexts.passages,{});assert.equal(resumePassageContext(resume,nativeOriginal),null);assert.equal(resumePassageContext({...resume,structureContexts:undefined},nativeOriginal),null);assert(!ctx.store.list('fact').some(fact=>fact.conflict),'Unknown project scope cannot prove the two distinct projects contradict one another');
- const pkg=await service.select({id:'job'},resume.id);assert.equal(pkg.verified,true);assert.deepEqual(await readFile(pkg.finalPath),bytes);
+ const pkg=await service.select(postingJob(ctx.store,{id:'job'}),resume.id);assert.equal(pkg.verified,true);assert.deepEqual(await readFile(pkg.finalPath),bytes);
 });

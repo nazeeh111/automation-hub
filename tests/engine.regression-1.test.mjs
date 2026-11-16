@@ -1,3 +1,4 @@
+import {bindPreparedPosting} from './fixtures/posting.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -16,7 +17,7 @@ async function fixture(t,{duringFill=false,otherRegion=false,reservation='uncert
  const url='https://jobs.lever.co/example/req-123';
  const posting={title:'Engineering intern',employer:'Example Labs',text:'Engineering internship. Python preferred.',requirements:[],sourceHash:'posting',open:true,sourceUrl:url};
  store.put('job',{id:'current',identity:'main|lever:us:example|req-123|',url,state:'ready',revision:0,title:posting.title,employer:posting.employer,posting,packageId:'package'});
- store.put('package',{id:'package',jobId:'current',verified:true,approved:true,requirements:[],hash:'synthetic',finalPath:'/not-opened.pdf'});
+ store.put('package',bindPreparedPosting(store,store.get('job','current'),{id:'package',jobId:'current',verified:true,approved:true,requirements:[],hash:'synthetic',finalPath:'/not-opened.pdf'}));
  const previous=()=>{
   store.put('job',{id:'older',identity:'main|lever:example|req-123/application|',url:`https://${otherRegion?'jobs.eu.lever.co':'jobs.lever.co'}/example/req-123/application`,state:reservation==='dispatch'?'failed':reservation,revision:1,title:posting.title,employer:posting.employer});
   if(reservation==='dispatch')store.put('run',{id:'older-dispatch',jobId:'older',identity:'main|lever:example|req-123/application|',state:'uncertain',dispatchedAt:'2026-11-15T12:00:00Z'});

@@ -1,3 +1,4 @@
+import {postingJob} from './fixtures/posting.mjs';
 import '../server/runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -75,7 +76,7 @@ test('selects a finished source unchanged, carries the actual posting and preser
   assert.equal(imported.imported,1,JSON.stringify(imported));
   await addSource(ctx,'software-finished',projectResume('Web prototype','- Built an unrelated JavaScript prototype for test fixtures.'));
   await addSource(ctx,'mega-evidence',projectResume('Sensor prototype',sensorLine,measuredLine),{mega:true});
-  const pkg=await ctx.service.prepare(job(),profile);
+  const pkg=await ctx.service.prepare(postingJob(ctx.store,job()),profile);
   assert.equal(observed.job.description,job().posting.text);
   assert.deepEqual(observed.scopedAnswers,job().reasoningAnswers);
   assert.equal(observed.resumes.length,2);
@@ -95,8 +96,8 @@ test('the mega resume cannot become the uploaded base even if reasoning selects 
   const ctx=await fixture(t,async()=>response('mega-evidence'));
   await addSource(ctx,'finished',projectResume('Sensor prototype',sensorLine));
   await addSource(ctx,'mega-evidence',projectResume('Sensor prototype',sensorLine,measuredLine),{mega:true});
-  await assert.rejects(ctx.service.prepare(job(),profile),/outside your finished resume library/);
-  await assert.rejects(ctx.service.select(job(),'mega-evidence'),/mega resume is evidence only/);
+  await assert.rejects(ctx.service.prepare(postingJob(ctx.store,job()),profile),/outside your finished resume library/);
+  await assert.rejects(ctx.service.select(postingJob(ctx.store,job()),'mega-evidence'),/mega resume is evidence only/);
   assert.equal(ctx.store.list('package').length,0);
 });
 
@@ -105,7 +106,7 @@ test('borrows a mega-only passage within the same project, retains provenance an
   ctx=await fixture(t,async()=>response('finished',[{original:sensorLine,replacement:measuredLine,factIds:[factFor(ctx,measuredLine).id]}]));
   await addSource(ctx,'finished',projectResume('Sensor prototype',sensorLine));
   await addSource(ctx,'mega-evidence',projectResume('Sensor prototype',measuredLine),{mega:true});
-  const pkg=await ctx.service.prepare(job(),profile);
+  const pkg=await ctx.service.prepare(postingJob(ctx.store,job()),profile);
   assert.equal(pkg.resumeId,'finished');
   assert(pkg.text.includes(measuredLine));
   assert(!pkg.text.includes(sensorLine));
@@ -170,7 +171,7 @@ test('contradictory metrics have no mega precedence and cannot pass through an u
   const decision=ctx.store.list('decision').find(d=>d.type==='fact_conflict');
   assert(decision&&decision.state==='open');
   assert.deepEqual(new Set(decision.factIds),new Set([a.id,b.id]));
-  await assert.rejects(ctx.service.select(job(),'finished-twelve'),e=>e.code==='fact_conflict');
+  await assert.rejects(ctx.service.select(postingJob(ctx.store,job()),'finished-twelve'),e=>e.code==='fact_conflict');
   assert.equal(ctx.store.list('package').length,0);
 });
 
@@ -183,8 +184,8 @@ test('a candidate-rejected metric is blocked even when its finished resume is re
   const a=factFor(ctx,twelve),b=factFor(ctx,twenty);
   ctx.store.put('fact',{...a,conflict:false,suppressed:false,confirmedAt:'2026-11-14T12:00:00Z'});
   ctx.store.put('fact',{...b,conflict:false,suppressed:true,confirmedAt:'2026-11-14T12:00:00Z'});
-  await assert.rejects(ctx.service.select(job(),'finished-twenty'),e=>e.code==='fact_conflict');
-  const pkg=await ctx.service.select(job(),'finished-twelve');
+  await assert.rejects(ctx.service.select(postingJob(ctx.store,job()),'finished-twenty'),e=>e.code==='fact_conflict');
+  const pkg=await ctx.service.select(postingJob(ctx.store,job()),'finished-twelve');
   assert(pkg.text.includes(twelve));
   assert(!pkg.text.includes(twenty));
 });
@@ -209,7 +210,7 @@ test('later unrelated indexing preserves a candidate-confirmed correction',async
 test('requirement assessments need an exact quote from the actual posting',async t=>{
   const ctx=await fixture(t,async()=>({...response('finished'),requirements:[{text:'US citizenship',kind:'mandatory',assessment:'missing',quote:'US citizens only'}]}));
   await addSource(ctx,'finished',projectResume('Sensor prototype',sensorLine));
-  await assert.rejects(ctx.service.prepare(job(),profile),/no matching posting quote/);
+  await assert.rejects(ctx.service.prepare(postingJob(ctx.store,job()),profile),/no matching posting quote/);
   assert.equal(ctx.store.list('package').length,0);
 });
 
@@ -227,7 +228,7 @@ test('a rendered document that expands beyond the permitted source page count is
   const ctx=await fixture(t);
   const long=projectResume('Sensor prototype',sensorLine,Array(180).fill('- Documented a controlled prototype simulation and reviewed its observed signal quality.').join('\n'));
   await addSource(ctx,'overlong-finished',long);
-  await assert.rejects(ctx.service.select(job(),'overlong-finished'),/exceeds the original page count/);
+  await assert.rejects(ctx.service.select(postingJob(ctx.store,job()),'overlong-finished'),/exceeds the original page count/);
   assert.equal(ctx.store.list('package').length,0);
 });
 
@@ -267,7 +268,7 @@ test('actual LibreOffice renders the supported DOCX fixture without losing sourc
   const source=ctx.store.list('resume')[0];
   assert.equal(source.renderStatus,'ready',source.renderError);
   assert.deepEqual(source.links,['https://example.invalid/sensor']);
-  const pkg=await ctx.service.select(job(),source.id);
+  const pkg=await ctx.service.select(postingJob(ctx.store,job()),source.id);
   assert.equal(pkg.mime,'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   assert.deepEqual(await readFile(pkg.finalPath),original.bytes);
   const rendered=await extract(pkg.previewPath,'application/pdf');
@@ -289,7 +290,7 @@ test('a DOCX resume supplies its verified rendered PDF to all PDF-only resume co
     {label:'Curriculum vitae',name:'cv',accept:'application/pdf',required:true},
     {label:'Cover letter',name:'cover_letter',accept:'.docx',required:false}
   ];
-  const pkg=await ctx.service.select(selected,source.id);
+  const pkg=await ctx.service.select(postingJob(ctx.store,selected),source.id);
   const upload=await readFile(pkg.finalPath);
   assert.equal(pkg.mime,'application/pdf');
   assert.equal(pkg.finalPath,pkg.previewPath);
@@ -321,7 +322,7 @@ test('incompatible resume upload controls hold rather than publish a package acc
     [{label:'Resume',accept:'.rtf'}]
   ]){
     const selected=job();selected.posting.documents=controls;
-    await assert.rejects(ctx.service.select(selected,source.id),error=>error.code==='resume_review'&&/common document format/.test(error.message));
+    await assert.rejects(ctx.service.select(postingJob(ctx.store,selected),source.id),error=>error.code==='resume_review'&&/common document format/.test(error.message));
     assert.equal(ctx.store.list('package').length,0,'No verified package may escape the format hold');
     assert(!ctx.store.list('event').some(event=>event.type==='package_prepared'));
     assert.deepEqual(await readFile(source.originalPath),original.bytes);

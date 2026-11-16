@@ -1,3 +1,4 @@
+import {bindPreparedPosting} from './fixtures/posting.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -17,11 +18,11 @@ async function engineFixture(t,submit) {
  const profile=store.put('profile',{id:'main',fullName:'Synthetic Candidate',email:'synthetic@example.test',answers:{}});
  store.put('resume',{id:'resume',mega:false});
  const job=store.put('job',{id:'job',identity:'main|lever:example|role',title:'Engineering intern',employer:'Example Labs',url:'https://jobs.lever.co/example/role',state:'ready',revision:0,packageId:'pkg',posting:{title:'Engineering intern',employer:'Example Labs',sourceHash:'saved-posting',sourceUrl:'https://jobs.lever.co/example/role',text:'Synthetic engineering internship.',open:true}});
- const pkg=store.put('package',{id:'pkg',jobId:job.id,resumeId:'resume',verified:true,approved:true,hash:'exact-fixture-document',profileRevision:profile.updatedAt,finalPath:'/synthetic-not-opened.pdf'});
+ const pkg=store.put('package',bindPreparedPosting(store,job,{id:'pkg',jobId:job.id,resumeId:'resume',verified:true,approved:true,hash:'exact-fixture-document',profileRevision:profile.updatedAt,finalPath:'/synthetic-not-opened.pdf'}));
  let engine=new Engine({store,directory,resumes:{},adapter:{inspect:async j=>j.posting,submit,close:async()=>{}}});
  t.after(async()=>{await engine.stop();store.close();await rm(directory,{recursive:true,force:true});});
  await engine.action('savePolicy',{rules:{maxApplications:10,maxPerEmployer:3,allowedHosts:['jobs.lever.co']}});await engine.action('enableCampaign',{confirmed:true});
- return {store,profile,job,pkg,directory,get engine(){return engine},restart:async()=>{await engine.stop();engine=new Engine({store,directory,resumes:{},adapter:{inspect:async j=>j.posting,submit,close:async()=>{}}});return engine;}};
+ return {store,profile,job:store.get('job',job.id),pkg,directory,get engine(){return engine},restart:async()=>{await engine.stop();engine=new Engine({store,directory,resumes:{},adapter:{inspect:async j=>j.posting,submit,close:async()=>{}}});return engine;}};
 }
 function acceptReceipt(store,profile,outcome='submitted') {
  const job=store.get('job','job');
@@ -67,7 +68,7 @@ test('native fingerprints ignore review decoration but bind actual label and com
 });
 for(const drift of ['unchanged','label','choices'])test('real native '+drift+' form only reuses exact current per-job binding',async t=>{
  const {chromium}=await import('playwright'),directory=await mkdtemp(path.join(tmpdir(),'hub-native-scope-')),store=new Store(directory),site=await employerFixture(),browser=await chromium.launch({headless:true}),page=await browser.newPage(),adapter=new BrowserAdapter({directory,allowLocal:true,fixturePortal:'greenhouse'});let engine;
- t.after(async()=>{await engine?.stop();await browser.close();await site.close();store.close();await rm(directory,{recursive:true,force:true});});const profile=store.put('profile',{id:'main',fullName:'Synthetic Candidate',email:'synthetic@example.test',answers:{}});store.put('resume',{id:'resume',mega:false});let job={id:'job',identity:'main|fixture|native',url:site.url,title:'Engineering intern',employer:'Example Labs',revision:0,state:'ready',packageId:'pkg',posting:{open:true,title:'Engineering intern',employer:'Example Labs',text:'Synthetic engineering internship.',sourceHash:'posting'}};store.put('job',job);const pkg=store.put('package',{id:'pkg',jobId:'job',hash:'hash',verified:true,approved:true,profileRevision:profile.updatedAt,finalPath:'/synthetic-not-opened.pdf'});
+ t.after(async()=>{await engine?.stop();await browser.close();await site.close();store.close();await rm(directory,{recursive:true,force:true});});const profile=store.put('profile',{id:'main',fullName:'Synthetic Candidate',email:'synthetic@example.test',answers:{}});store.put('resume',{id:'resume',mega:false});let job={id:'job',identity:'main|fixture|native',url:site.url,title:'Engineering intern',employer:'Example Labs',revision:0,state:'ready',packageId:'pkg',posting:{open:true,title:'Engineering intern',employer:'Example Labs',text:'Synthetic engineering internship.',sourceHash:'posting'}};store.put('job',job);const pkg=store.put('package',bindPreparedPosting(store,store.get('job','job'),{id:'pkg',jobId:'job',hash:'hash',verified:true,approved:true,profileRevision:profile.updatedAt,finalPath:'/synthetic-not-opened.pdf'}));job=store.get('job','job');
  await page.goto(site.url);await page.locator('#next').click();let held;try{await adapter.fillPage(page,profile,{...pkg,postingHash:'posting'},()=>{});}catch(error){held=error;}assert.equal(held?.code,'form_questions');const questions=held.details.questions;let materialized;
  engine=new Engine({store,directory,resumes:{},adapter:{inspect:async j=>j.posting,close:async()=>{},submit:async(j,p,k)=>{materialized=p;await adapter.fillPage(page,p,{...k,postingHash:'posting'},()=>{});throw new ApplicationHold('fixture_complete','Local readback completed without dispatch.');}}});const decision=engine.hold(job,'form_questions','Answer current native questions',{questions});await engine.action('resolveDecision',{decisionId:decision.id,answer:{'Available start date':'June','I agree to the employer privacy notice':true}});
  if(drift==='label')await page.locator('#start').evaluate(el=>el.parentElement.firstChild.textContent='Available start date after graduation');if(drift==='choices')await page.locator('#start').evaluate(el=>el.add(new Option('August','August')));

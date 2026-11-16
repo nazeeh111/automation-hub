@@ -1,3 +1,4 @@
+import {bindPreparedPosting} from './fixtures/posting.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -13,8 +14,8 @@ async function fixture(t,{state='needs_you',...extra}={}) {
  const ctx=hub.context(false);clearInterval(ctx.engine.timer);ctx.engine.timer=null;
  const profile=ctx.store.put('profile',{id:'main',fullName:'Synthetic Candidate',email:'synthetic@example.test',answers:{}});
  ctx.store.put('resume',{id:'resume',mega:false});
- ctx.store.put('job',{id:'job',identity:'main|lever:example|role',title:'Engineering intern',employer:'Example Labs',url:'https://jobs.lever.co/example/role',state,revision:0,packageId:'pkg',posting:{title:'Engineering intern',employer:'Example Labs',sourceHash:'synthetic-posting',sourceUrl:'https://jobs.lever.co/example/role',text:'Synthetic engineering internship.',open:true},...extra});
- ctx.store.put('package',{id:'pkg',jobId:'job',resumeId:'resume',verified:true,approved:false,hash:'synthetic-package',profileRevision:profile.updatedAt,finalPath:'/synthetic-not-opened.pdf',requirements:[]});
+ ctx.store.put('job',{id:'job',identity:'main|lever:example|role',title:'Engineering intern',employer:'Example Labs',url:'https://jobs.lever.co/example/role',state:'needs_you',revision:0,packageId:'pkg',posting:{title:'Engineering intern',employer:'Example Labs',sourceHash:'synthetic-posting',sourceUrl:'https://jobs.lever.co/example/role',text:'Synthetic engineering internship.',open:true},...extra});
+ ctx.store.put('package',bindPreparedPosting(ctx.store,ctx.store.get('job','job'),{id:'pkg',jobId:'job',resumeId:'resume',verified:true,approved:false,hash:'synthetic-package',profileRevision:profile.updatedAt,finalPath:'/synthetic-not-opened.pdf',requirements:[]}));ctx.store.put('job',{...ctx.store.get('job','job'),state});
  ctx.store.put('decision',{id:'review',jobId:'job',code:'package_review',state:'open',details:{packageId:'pkg',hash:'synthetic-package'}});
  const auth=await fetch(hub.launchUrl,{redirect:'manual'}),cookie=auth.headers.get('set-cookie').split(';')[0];
  const action=async body=>{const res=await fetch(hub.baseUrl+'/api/action',{method:'POST',headers:{Cookie:cookie,Origin:hub.baseUrl,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:res.status,body:await res.json()};};
