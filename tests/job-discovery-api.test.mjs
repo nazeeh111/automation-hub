@@ -37,7 +37,7 @@ test('time-sensitive discovery metadata invalidates conditional state; failed re
 });
 test('discovery filters are bounded and typed; stale workspace actions cannot mutate the other store',async t=>{
  const f=await fixture(t),s=await source(f.request);
- for(const query of ['limit=101','limit=2.5','offset=-1','favoriteOnly=1','provider=ashby','usOnly=yes','locationScope=canada','sort=posted','query=a&query=b','unknown=x'])assert.equal((await f.request('/api/discovery?'+query)).status,400,query);
+ for(const query of ['limit=101','limit=2.5','offset=-1','favoriteOnly=1','provider=unsupported','usOnly=yes','locationScope=canada','sort=posted','query=a&query=b','unknown=x'])assert.equal((await f.request('/api/discovery?'+query)).status,400,query);
  assert.equal((await f.request('/api/discovery?limit=0')).data.candidates.length,0);
  const store=f.hub.context(false).store,observedAt=new Date().toISOString();
  store.put('discovery_source',{...store.get('discovery_source',s.id),status:'ready',lastObservedAt:observedAt});

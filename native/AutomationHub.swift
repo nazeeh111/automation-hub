@@ -85,17 +85,17 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        NSApp.appearance = NSAppearance(named: .darkAqua)
+        NSApp.appearance = NSAppearance(named: .aqua)
         makeMenus()
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.userContentController.add(self, name: "hub")
         web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self; web.uiDelegate = self
-        web.underPageBackgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1)
+        web.underPageBackgroundColor = NSColor(calibratedRed: 246.0/255, green: 247.0/255, blue: 249.0/255, alpha: 1)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 880), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Automation Hub"; window.minSize = NSSize(width: 680, height: 520)
-        window.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1)
+        window.backgroundColor = NSColor(calibratedRed: 246.0/255, green: 247.0/255, blue: 249.0/255, alpha: 1)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("AutomationHubWindow")
         let container = NSView(); window.contentView = container

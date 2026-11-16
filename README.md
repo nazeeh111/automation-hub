@@ -2,7 +2,7 @@
 
 A local dashboard for personal automations, centered on finding and managing US internship applications, with an optional read-only view of existing n8n workflows.
 
-The internship workspace keeps employer-feed discovery, selected jobs, original resumes, scoped questions, reviewed documents and application evidence together. Home puts each automation’s state, next useful action and compact visual workflow together. n8n remains responsible for its own execution and schedules.
+The internship workspace keeps employer-feed discovery, selected jobs, original resumes, scoped questions, reviewed documents and application evidence together. The light Mac workbench puts each automation’s state, next useful action and interactive application path together. Find in workspace (Command-K or Control-K) opens pages, exact saved applications and questions. n8n remains responsible for its own execution and schedules.
 
 This is an early macOS-first project. It is intended for one person on their own computer. Supported employer adapters currently cover Greenhouse and Lever, with local fixtures for their supported paths. Employer customizations and other portals need separate validation. A prepared document or a synthetic receipt does not establish a real submission or a hiring outcome.
 
@@ -29,7 +29,7 @@ Private data defaults to `~/Library/Application Support/Automation Hub`, outside
 
 ## Use the workspace
 
-Home starts with Internship applications, its campaign state and Browse US internships. It guides selected work through résumé import, essential profile details and campaign rules. Exact question links open Needs You; the application workspace retains posting, document and outcome evidence. Linked n8n workflows show only observed stages and status.
+Home starts with Internship applications, its campaign state and Browse US internships. It guides selected work through résumé import, essential profile details and campaign rules. A saved-question index and exact question links open Needs You; the application workspace retains posting, document and outcome evidence. Linked n8n workflows show only observed stages and status.
 
 1. Explore the separate fixture workspace in Internships → Settings before entering real data.
 2. Import finished resumes and selected HTTPS job links. An optional mega resume supplies supporting evidence and cannot be the uploaded base.
@@ -37,7 +37,7 @@ Home starts with Internship applications, its campaign state and Browse US inter
 4. Configure optional connections explicitly. The application starts without a real campaign enabled.
 5. Enable a concrete campaign only after reviewing its inputs and rules. Unknown consent, unsupported forms, account challenges and missing facts remain visible exceptions.
 
-**Discover US internships:** in Discover, add a public employer board with **Add source**, then choose **Check jobs** to read its openings. Adding the source saves its configuration locally. Browsing and saving need no resume, AI connection, employer account or enabled campaign. Discovery reads supported Greenhouse and Lever employer boards. Feed links can lead to custom application portals; actual employer forms still require verification.
+**Discover US internships:** in Discover, add a public employer board with **Add source**, then choose **Check jobs** to read its openings. Adding the source saves its configuration locally. Browsing and saving need no resume, AI connection, employer account or enabled campaign. Discovery reads supported Greenhouse, Lever and Ashby employer boards. Ashby uses its public Posting API; its applications require manual completion, with no Ashby auto-apply adapter claimed. Feed links can lead to custom application portals; actual employer forms still require verification.
 
 Discover opens on the **US internships** preset, combining an internship keyword check with employer-supplied US location evidence. **All jobs** shows the broader retained observations, and **Review uncertain locations** keeps unknown or conflicting geography accessible. A board's technical host region does not establish where a job is based.
 
@@ -49,7 +49,7 @@ The Summer 2027 and Spring 2027 shortcuts search employer text for those words. 
 
 US internship browsing with isolated synthetic data.
 
-Posted dates appear only when supplied by the employer. **Found** records the first local observation, and the detail view keeps the latest successful observation. Partial, stale and failed checks retain previous roles with their dated or unknown status. Saved roles survive a disconnected or unavailable source. Use **Check jobs** when you want a new bounded observation.
+Posted dates appear only when supplied by the employer. Ashby’s Last published timestamp stays distinct from an original posting date. **Found** records the first local observation, and the detail view keeps the latest successful observation. Partial, stale and failed checks retain previous roles with their dated or unknown status. Saved roles survive a disconnected or unavailable source. Use **Check jobs** when you want a new bounded observation.
 
 | State | Meaning |
 | --- | --- |
@@ -113,3 +113,5 @@ Explicit `HUB_CODEX_BIN`, `HUB_SOFFICE_BIN` and `PLAYWRIGHT_BROWSERS_PATH` value
 | `tests/` | Synthetic service, document, browser and native fixtures |
 
 See [architecture](docs/ARCHITECTURE.md), [contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md). Original project code is under the [MIT license](LICENSE). Dependencies retain their own licenses; the build generates third-party notices from their installed license files. No upstream application runtime or research corpus is distributed here.
+
+[Research and design decisions](docs/PRODUCT_DECISIONS.md) explain the implemented patterns and remaining coverage limits.

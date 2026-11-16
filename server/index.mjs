@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Store } from './store.mjs';
 import { Engine } from './engine.mjs';
-import { DemoAdapter,portalFor,validateDestination } from './adapters.mjs';
+import { DemoAdapter,portalFor,postingIdentity,validateDestination } from './adapters.mjs';
 import { ResumeService } from './resumes.mjs';
 import { ModelService } from './model.mjs';
 import { WritingService } from './writing-service.mjs';
@@ -31,9 +31,15 @@ export function canonicalJob(raw){
  for(const key of [...url.searchParams.keys()])if(/^utm_|^(source|ref|referrer|src|lever-source|gh_src)$/i.test(key))url.searchParams.delete(key);
  // Greenhouse aliases identify the same tenant/requisition; Lever /apply is the same role.
  let tenant=url.hostname,req=url.pathname.replace(/\/+$/,'');const pieces=req.split('/').filter(Boolean);
- if(['boards.greenhouse.io','job-boards.greenhouse.io','job-boards.eu.greenhouse.io'].includes(url.hostname)){const eu=url.hostname==='job-boards.eu.greenhouse.io';tenant=(eu?'greenhouse:eu:':'greenhouse:')+pieces[0];req=url.searchParams.get('gh_jid')||pieces.at(-1);url.hostname=eu?'job-boards.eu.greenhouse.io':'job-boards.greenhouse.io';}
- if(['jobs.lever.co','jobs.eu.lever.co'].includes(url.hostname)){tenant=`lever:${url.hostname==='jobs.eu.lever.co'?'eu':'us'}:${pieces[0]}`;req=pieces.filter(p=>p!=='apply').slice(1).join('/');url.pathname=url.pathname.replace(/\/apply\/?$/,'');}
- url.searchParams.sort();return {url:url.toString(),identity:`main|${tenant}|${req}|${['greenhouse:','lever:'].some(p=>tenant.startsWith(p))?'':url.searchParams.toString()}`,portal:portalFor(url.toString())};
+ // Use the adapter's requisition parser as the one identity source. A later
+ // application-page suffix must not create another queue entry for the role
+ // the adapter will inspect and submit. Existing recorded identities stay intact.
+ if(['boards.greenhouse.io','job-boards.greenhouse.io','job-boards.eu.greenhouse.io'].includes(url.hostname)){const eu=url.hostname==='job-boards.eu.greenhouse.io';tenant=(eu?'greenhouse:eu:':'greenhouse:')+pieces[0];req=postingIdentity(url.toString(),'greenhouse').slice(tenant.length+1);url.hostname=eu?'job-boards.eu.greenhouse.io':'job-boards.greenhouse.io';}
+ if(['jobs.lever.co','jobs.eu.lever.co'].includes(url.hostname)){tenant=`lever:${url.hostname==='jobs.eu.lever.co'?'eu':'us'}:${pieces[0]}`;req=postingIdentity(url.toString(),'lever').slice(tenant.length+1);url.pathname=url.pathname.replace(/\/apply\/?$/,'');}
+ // Ashby discovery and manual imports share the hosted requisition identity.
+ // This does not add a browser submission adapter. Preserve older row identities.
+ if(url.hostname==='jobs.ashbyhq.com'&&[2,3].includes(pieces.length)&&(pieces.length===2||pieces[2]==='application')&&pieces.slice(0,2).every(piece=>/^[A-Za-z0-9_-]{1,100}$/.test(piece))){tenant=`ashby:${pieces[0]}`;req=pieces[1];url.pathname=`/${pieces[0]}/${pieces[1]}`;}
+ url.searchParams.sort();return {url:url.toString(),identity:`main|${tenant}|${req}|${['greenhouse:','lever:','ashby:'].some(p=>tenant.startsWith(p))?'':url.searchParams.toString()}`,portal:portalFor(url.toString())};
 }
 function parseCSV(line){const cells=[];let value='',quoted=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(quoted&&line[i+1]==='"'){value+='"';i++;}else quoted=!quoted;}else if(c===','&&!quoted){cells.push(value.trim());value='';}else value+=c;}if(quoted)throw fail('CSV row contains an unclosed quote.');cells.push(value.trim());return cells;}
 export function importJobs(store,text){

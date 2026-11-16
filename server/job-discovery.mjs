@@ -44,18 +44,20 @@ export function discoveryLocationScope(location,country=''){
 }
 
 export function parseDiscoverySource(raw){
- if(typeof raw!=='string'||raw.length>500||!/^https:\/\//i.test(raw))throw fault('DISCOVERY_SOURCE','Use a public Greenhouse or Lever employer board URL.',400);
+ if(typeof raw!=='string'||raw.length>500||!/^https:\/\//i.test(raw))throw fault('DISCOVERY_SOURCE','Use a public Greenhouse, Lever or Ashby employer board URL.',400);
  let url;try{url=new URL(raw);}catch{throw fault('DISCOVERY_SOURCE','The employer board URL is invalid.',400);}
  if(url.username||url.password||url.search||url.hash||url.port&&url.port!=='443')throw fault('DISCOVERY_SOURCE','Use the employer board URL without credentials, queries, fragments or a custom port.',400);
  const parts=url.pathname.split('/').filter(Boolean);let provider,region='us',board;
  if(['boards.greenhouse.io','job-boards.greenhouse.io','job-boards.eu.greenhouse.io'].includes(url.hostname)&&parts.length===1){provider='greenhouse';region=url.hostname==='job-boards.eu.greenhouse.io'?'eu':'us';board=parts[0];}
  else if(['jobs.lever.co','jobs.eu.lever.co'].includes(url.hostname)&&parts.length===1){provider='lever';region=url.hostname==='jobs.eu.lever.co'?'eu':'us';board=parts[0];}
- else throw fault('DISCOVERY_SOURCE','Only exact Greenhouse and Lever employer board URLs are supported. Use the board, not a single job or API URL.',400);
+ else if(url.hostname==='jobs.ashbyhq.com'&&parts.length===1){provider='ashby';region='global';board=parts[0];}
+ else throw fault('DISCOVERY_SOURCE','Only exact Greenhouse, Lever and Ashby employer board URLs are supported. Use the board, not a single job or API URL.',400);
  if(!token.test(board))throw fault('DISCOVERY_SOURCE','The employer board identifier is unsupported.',400);
- const boardUrl=`https://${provider==='greenhouse'?(region==='eu'?'job-boards.eu.greenhouse.io':'job-boards.greenhouse.io'):region==='eu'?'jobs.eu.lever.co':'jobs.lever.co'}/${board}`;
+ const boardUrl=`https://${provider==='ashby'?'jobs.ashbyhq.com':provider==='greenhouse'?(region==='eu'?'job-boards.eu.greenhouse.io':'job-boards.greenhouse.io'):region==='eu'?'jobs.eu.lever.co':'jobs.lever.co'}/${board}`;
  return {id:`${provider}:${region}:${board}`,provider,region,board,boardUrl};
 }
 function route(source,page=0,metadataOnly=false){
+ if(source.provider==='ashby')return `https://api.ashbyhq.com/posting-api/job-board/${source.board}`;
  if(source.provider==='greenhouse')return `https://boards-api.greenhouse.io/v1/boards/${source.board}/jobs${metadataOnly?'':'?content=true'}`;
  return `https://${source.region==='eu'?'api.eu.lever.co':'api.lever.co'}/v0/postings/${source.board}?mode=json&skip=${page*DISCOVERY_LIMITS.pageSize}&limit=${DISCOVERY_LIMITS.pageSize}`;
 }
@@ -72,6 +74,7 @@ function publicLink(raw){
 }
 function candidate(source,row){
  if(!row||typeof row!=='object'||Array.isArray(row))throw fault('DISCOVERY_RESPONSE','The public employer feed contains an invalid posting.');
+ if(source.provider==='ashby')return ashbyCandidate(source,row);
  const greenhouse=source.provider==='greenhouse',externalId=greenhouse?(Number.isSafeInteger(row.id)&&row.id>0?String(row.id):''):(typeof row.id==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(row.id)?row.id:'');
  const title=text(greenhouse?row.title:row.text,500);if(!externalId||!title)throw fault('DISCOVERY_RESPONSE','A public posting is missing its stable identity or title.');
  const canonicalUrl=greenhouse?`${source.boardUrl}/jobs/${externalId}`:`${source.boardUrl}/${externalId}`;
@@ -80,6 +83,22 @@ function candidate(source,row){
  const supported=greenhouse?(source.region==='eu'?target.hostname==='job-boards.eu.greenhouse.io':['boards.greenhouse.io','job-boards.greenhouse.io'].includes(target.hostname))&&target.pathname===expected.pathname:target.hostname===expected.hostname&&target.pathname===expected.pathname;
  const location=text(greenhouse?row.location?.name:row.categories?.location,500),country=text(greenhouse?row.location?.country:row.country,100);
  return {id:`${source.id}:${externalId}`,sourceId:source.id,externalId,provider:source.provider,region:source.region,company:text(row.company_name)||source.label,title,location,country,locationScope:discoveryLocationScope(location,country),department:text(greenhouse?row.departments?.map(item=>text(item?.name)).filter(Boolean).join(', '):row.categories?.department||row.categories?.team,500),employmentType:text(greenhouse?'':row.categories?.commitment),workplaceType:text(greenhouse?'':row.workplaceType),description:description(greenhouse?row.content:[row.descriptionPlain,row.additionalPlain,...(Array.isArray(row.lists)?row.lists.map(item=>`${text(item?.text)} ${description(item?.content)}`):[])].filter(Boolean).join(' ')),url,canonicalUrl,postedAt:timestamp(greenhouse?row.first_published:null),sourceUpdatedAt:timestamp(greenhouse?row.updated_at:null),supportStatus:supported?'portal_review_required':'external_portal',supportDetail:supported?'A supported portal family; actual questions, permissions and employer receipts still require verification.':'The feed links to a custom or unsupported application portal. Keep it visible for manual review.'};
+}
+// Ashby is a discovery source only. Its application pages are not implemented by
+// the browser adapter, so saved roles retain an explicit manual-review boundary.
+function ashbyCandidate(source,row){
+ const url=publicLink(row.jobUrl);let target;try{target=new URL(url);}catch{throw fault('DISCOVERY_RESPONSE','An Ashby posting has an unsafe or missing job URL.');}
+ const parts=target.pathname.split('/').filter(Boolean),externalId=parts[1];
+ if(target.hostname!=='jobs.ashbyhq.com'||parts.length!==2||parts[0]!==source.board||!token.test(externalId||'')||row.id!==undefined&&row.id!==externalId)throw fault('DISCOVERY_RESPONSE','An Ashby posting does not match this employer board and stable job identity.');
+ const title=text(row.title,500);if(!title)throw fault('DISCOVERY_RESPONSE','An Ashby posting is missing its title.');
+ if(row.secondaryLocations!==undefined&&(!Array.isArray(row.secondaryLocations)||row.secondaryLocations.length>100))throw fault('DISCOVERY_RESPONSE','The Ashby posting locations are malformed or exceed the bounded limit.');
+ const places=[{location:row.location,address:row.address},...(row.secondaryLocations||[])].map(place=>{
+  if(!place||typeof place!=='object'||Array.isArray(place))throw fault('DISCOVERY_RESPONSE','An Ashby posting contains an invalid location.');
+  const address=place.address?.postalAddress||place.address||{},country=text(address.addressCountry,100),location=text(place.location,500)||[text(address.addressLocality),text(address.addressRegion),country].filter(Boolean).join(', ');
+  return {location,country,scope:discoveryLocationScope(location,country)};
+ });
+ const locationScope=new Set(places.map(place=>place.scope)).size===1?places[0].scope:'unknown',canonicalUrl=`${source.boardUrl}/${externalId}`;
+ return {id:`${source.id}:${externalId}`,sourceId:source.id,externalId,provider:'ashby',region:'global',company:source.label,title,location:places.map(place=>place.location).filter(Boolean).join('; ').slice(0,2000),country:places[0].country,locations:places,locationScope,department:[text(row.department),text(row.team)].filter(Boolean).join(', '),employmentType:text(row.employmentType),workplaceType:text(row.workplaceType).toLowerCase(),description:description(row.descriptionPlain||row.descriptionHtml),url:canonicalUrl,canonicalUrl,postedAt:null,sourceUpdatedAt:timestamp(row.publishedAt),publishedAt:timestamp(row.publishedAt),publishedAtMeaning:'last_published',supportStatus:'external_portal',supportDetail:'Ashby public job discovery is supported. Application preparation and submission on Ashby require manual completion; no Ashby auto-apply adapter is available.'};
 }
 async function boundedJSON(response,budget){
  const length=Number(response.headers?.get?.('content-length')??response.headers?.['content-length']);
@@ -103,7 +122,7 @@ export class JobDiscovery{
  sourceStatus(source){const stale=source.lastObservedAt&&this.clock()-Date.parse(source.lastObservedAt)>this.staleMs;return {...source,status:source.status==='unavailable'?'unavailable':stale?'stale':source.status||'unknown',nextRefreshAt:this.store.get('discovery_rate',source.id)?.nextRefreshAt||null};}
  candidateStatus(row,source=this.store.get('discovery_source',row.sourceId),favorite=this.store.get('discovery_favorite',row.id)?.favorite===true,state=source?this.sourceStatus(source).status:'unknown'){const current=row.availability==='active'&&source?.lastObservedAt===row.lastSeenAt&&['ready','partial'].includes(state);return {...row,locationScope:['us','outside_us','unknown'].includes(row.locationScope)?row.locationScope:discoveryLocationScope(row.location,row.country),favorite,availability:current?'active':row.availability==='missing'&&state==='ready'?'missing':'unknown',observationStatus:state,queueEligible:current};}
  snapshot({query='',provider='',sourceId='',favoriteOnly=false,usOnly=false,locationScope='',availability='',location='',workplace='',roleType='',discipline='',sort='recent',limit=40,offset=0}={}){
-  this.assertOpen();if(typeof query!=='string'||query.length>500||!['','greenhouse','lever'].includes(provider)||typeof sourceId!=='string'||sourceId.length>250||typeof favoriteOnly!=='boolean'||typeof usOnly!=='boolean'||!['','us','outside_us','unknown'].includes(locationScope)||!['','active','missing','unknown'].includes(availability))throw fault('DISCOVERY_FILTER','The discovery filters are invalid.',400);
+  this.assertOpen();if(typeof query!=='string'||query.length>500||!['','greenhouse','lever','ashby'].includes(provider)||typeof sourceId!=='string'||sourceId.length>250||typeof favoriteOnly!=='boolean'||typeof usOnly!=='boolean'||!['','us','outside_us','unknown'].includes(locationScope)||!['','active','missing','unknown'].includes(availability))throw fault('DISCOVERY_FILTER','The discovery filters are invalid.',400);
   if([location,workplace,roleType,discipline].some(value=>typeof value!=='string'||value.length>250)||!['recent','firstSeen','title','company'].includes(sort))throw fault('DISCOVERY_FILTER','The discovery keyword filters or sorting are invalid.',400);
   if(!Number.isInteger(limit)||limit<0||limit>100||!Number.isInteger(offset)||offset<0||offset>150000)throw fault('DISCOVERY_FILTER','Use a bounded discovery page.',400);
   const sources=this.store.list('discovery_source').map(source=>this.sourceStatus(source)),sourceMap=new Map(sources.map(source=>[source.id,source])),favorites=new Set(this.store.list('discovery_favorite').filter(row=>row.favorite===true).map(row=>row.id)),stored=this.store.list('discovery_candidate');
@@ -134,9 +153,11 @@ export class JobDiscovery{
    const rows=[],seen=new Set(),budget={bytes:0};let complete=false,pages=0,metadataOnly=false,requests=0;
    for(let page=0;page<DISCOVERY_LIMITS.pages;page++){
     let data;try{requests++;data=await this.read(context,page,controller.signal,budget);}catch(error){if(context.source.provider!=='greenhouse'||error.code!=='DISCOVERY_RESPONSE_LIMIT')throw error;this.guard(context);metadataOnly=true;requests++;data=await this.read(context,page,controller.signal,budget,true);}pages++;
-    const list=context.source.provider==='greenhouse'?data?.jobs:data;
-    if(!Array.isArray(list)||list.length>(context.source.provider==='greenhouse'?DISCOVERY_LIMITS.jobsPerRefresh:DISCOVERY_LIMITS.pageSize))throw fault('DISCOVERY_RESPONSE_LIMIT','The public posting list is malformed or exceeds the bounded item limit.');
-    for(const item of list){const row={...candidate(context.source,item),descriptionCoverage:metadataOnly?'metadata_only':'bounded_preview'};if(seen.has(row.id))throw fault('DISCOVERY_RESPONSE','The employer feed repeated a posting identity across its snapshot.');seen.add(row.id);rows.push(row);}
+    if(context.source.provider==='ashby'&&data?.apiVersion!=='1')throw fault('DISCOVERY_RESPONSE','The Ashby public posting API version is unsupported.');
+    const list=context.source.provider==='lever'?data:data?.jobs;
+    if(!Array.isArray(list)||list.length>(context.source.provider==='lever'?DISCOVERY_LIMITS.pageSize:DISCOVERY_LIMITS.jobsPerRefresh))throw fault('DISCOVERY_RESPONSE_LIMIT','The public posting list is malformed or exceeds the bounded item limit.');
+    for(const item of list){if(context.source.provider==='ashby'){if(typeof item?.isListed!=='boolean')throw fault('DISCOVERY_RESPONSE','An Ashby posting is missing its public listing status.');if(!item.isListed)continue;}const row={...candidate(context.source,item),descriptionCoverage:metadataOnly?'metadata_only':'bounded_preview'};if(seen.has(row.id))throw fault('DISCOVERY_RESPONSE','The employer feed repeated a posting identity across its snapshot.');seen.add(row.id);rows.push(row);}
+    if(context.source.provider==='ashby'){complete=true;break;}
     if(context.source.provider==='greenhouse'){if(data?.meta?.total!==undefined&&(!Number.isSafeInteger(data.meta.total)||data.meta.total<list.length))throw fault('DISCOVERY_RESPONSE','The employer feed returned inconsistent totals.');complete=data?.meta?.total===list.length;break;}
     if(list.length<DISCOVERY_LIMITS.pageSize){complete=true;break;}
    }
