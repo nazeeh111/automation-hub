@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHub} from '../server/index.mjs';
 let hub,directory;
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{const schedule=window.setInterval;window.setInterval=(callback,delay,...args)=>schedule(delay===5000?()=>{}:callback,delay,...args);});directory=await mkdtemp(path.join(tmpdir(),'hub-refresh-audit-'));hub=await createHub({directory,port:0});await page.goto(hub.launchUrl);await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();await page.getByRole('tab',{name:'Settings',exact:true}).click();});
+test.beforeEach(async({page})=>{await page.addInitScript(()=>{const schedule=window.setInterval;window.setInterval=(callback,delay,...args)=>schedule(delay===5000?()=>{}:callback,delay,...args);});directory=await mkdtemp(path.join(tmpdir(),'hub-refresh-audit-'));hub=await createHub({directory,port:0});await page.goto(hub.launchUrl);await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();await page.getByRole('button',{name:'Go to Applications',exact:true}).click();await page.getByRole('tab',{name:'Settings',exact:true}).click();});
 test.afterEach(async({page})=>{await page.close();await hub?.close();await rm(directory,{recursive:true,force:true});});
 const painted=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 test('late real-state response cannot replace a newly selected fixture workspace',async({page},testInfo)=>{

@@ -2,13 +2,13 @@
 
 A local dashboard for personal automations, centered on finding and managing US internship applications, with an optional read-only view of existing n8n workflows.
 
-The internship workspace connects employer-feed discovery, selected jobs, exact source versions, original resumes, scoped questions, reviewed documents and application evidence. Discover remembers the current search, filters, page and role as you review its queued application, with an explicit return route. The application overview puts exact pending questions, requirements, document readiness and receipt evidence in one place. The Automation Switchboard puts each automation’s state, next useful action, saved questions and connected application path together. Find in workspace (Command-K or Control-K) opens pages, exact saved applications and questions. Local reasoning activity, full per-application history and on-demand worker status make saved work easier to inspect and recover. n8n remains responsible for its own execution and schedules.
+The internship workspace connects employer-feed discovery, selected jobs, exact source versions, original resumes, scoped questions, reviewed documents and application evidence. Discover remembers the current search, filters, page and role as you review its queued application, with an explicit return route. The application overview puts exact pending questions, requirements, document readiness and receipt evidence in one place. Home puts each automation’s state, next useful action and saved questions together. A light workspace shell uses one global navigation and one contextual section list. Needs You pairs the saved-question list with one active question, and the document library puts retained originals and package versions beside a full preview. Find in workspace (Command-K or Control-K) opens pages, exact saved applications and questions. Local reasoning activity, full per-application history and on-demand worker status make saved work easier to inspect and recover. n8n remains responsible for its own execution and schedules.
 
 This is an early macOS-first project. It is intended for one person on their own computer. Supported employer adapters currently cover Greenhouse and Lever, with local fixtures for their supported paths. Employer customizations and other portals need separate validation. A prepared document or a synthetic receipt does not establish a real submission or a hiring outcome.
 
 ![Application review with isolated synthetic data.](docs/images/application-overview.png)
 
-Application review with isolated synthetic data. [Home](docs/images/home.png), [phone queue](docs/images/applications-phone.png) and [phone Home](docs/images/home-mobile.png).
+Application review with isolated synthetic data. [Home](docs/images/home.png), [phone queue](docs/images/applications-phone.png) and [phone Home](docs/images/home-phone.png).
 
 ## Run from source
 
@@ -29,7 +29,7 @@ Private data defaults to `~/Library/Application Support/Automation Hub`, outside
 
 ## Use the workspace
 
-Home starts with Internship applications, its campaign state and Browse US internships. It guides selected work through résumé import, essential profile details and campaign rules. A saved-question index and exact question links open Needs You; the application workspace retains posting, document and outcome evidence. Linked n8n workflows show only observed stages and status.
+Home shows actual automation work, current questions and direct Discover, Applications and Résumés destinations. The optional “How this automation works” guide explains the five stages. Inside the internship workspace, a contextual section list becomes a native section picker on phones. Linked n8n workflows show only observed stages and status.
 
 1. Explore the separate fixture workspace in Internships → Settings before entering real data.
 2. Import finished resumes and selected HTTPS job links. An optional mega resume supplies supporting evidence and cannot be the uploaded base.
@@ -57,9 +57,9 @@ Posted dates appear only when supplied by the employer. Ashby’s Last published
 | In application queue | A role explicitly selected for preparation under campaign rules |
 | Confirmed | An application with matching employer evidence in the application ledger |
 
-Home starts with **Internship applications**, its campaign state and **Browse US internships**. After selecting roles, it guides you through finished résumés, essential profile details and campaign rules. Needs You opens the exact employer question. A résumé review shows the retained version and changes; missing or stale evidence offers recovery instead of an unusable approval. Connections and workflow linking are on the Connections page.
+Needs You opens one exact employer question while retaining other current answer drafts. The Résumés library distinguishes finished originals, supporting evidence and prepared versions. Missing or stale review evidence offers recovery. Connections and workflow linking have one owning Connections page.
 
-The application queue has counted work views, multiword role/employer search, stable sorting and pages of 40. Known-deadline sorting leaves missing or uncertain dates below established dates. Opening a search result reveals its exact page; closing the inspector returns focus to that row without losing the page. Filtering beside a desktop inspector preserves the search control you are using.
+The application queue has counted work views, multiword role/employer search, stable sorting and pages of 40. Known-deadline sorting leaves missing or uncertain dates below established dates. Opening a search result reveals its exact page. Application review uses the full workspace; Back returns to the same queue, filters, sort and row focus. The phone layout keeps Back, review tabs and actions reachable while long role content scrolls.
 
 The inspector's **Overview** shows exact saved questions first, then source, requirements, document and receipt checks. Checks describe retained evidence rather than an invented progress percentage. Candidate attestation, employer requirement text and a matching receipt remain different kinds of evidence.
 
@@ -68,6 +68,8 @@ The inspector's **Overview** shows exact saved questions first, then source, req
 ![Retained source comparison with isolated synthetic data.](docs/images/posting-comparison.png)
 
 Adding a fresh role to the queue does not itself submit an application. Dispatch follows the enabled campaign rules and required document/question review.
+
+Unreadable or lost save replies show an unknown outcome and require reconnecting to inspect saved work before retrying. A late completion cannot close a newer editing session or clear its input. Unexpected view failures offer a focused local recovery surface without replaying application actions.
 
 Original documents remain available. Edited documents and written answers require the appropriate exact-content review. The app tracks prepared, dispatched, uncertain and confirmed states separately; uncertain external effects cannot be blindly retried.
 

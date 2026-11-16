@@ -1,6 +1,6 @@
 import { DatabaseSync, backup } from 'node:sqlite';
-import { mkdirSync, chmodSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, chmodSync,existsSync,statSync } from 'node:fs';
+import { join,resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 
 const now = () => new Date().toISOString();
@@ -96,6 +96,15 @@ export class Store {
     });
   }
   releaseWorker(ownerId) {const row=this.db.prepare('SELECT value FROM metadata WHERE key=?').get('worker');if(row&&JSON.parse(row.value).ownerId===ownerId)this.db.prepare('DELETE FROM metadata WHERE key=?').run('worker');}
-  async backup(path) { await backup(this.db,path); chmodSync(path,0o600); return path; }
+  async backup(destination) {
+    const source=join(this.directory,'hub.sqlite'),sourceInfo=statSync(source),targetInfo=existsSync(destination)?statSync(destination):null;
+    if(resolve(destination)===resolve(source)||targetInfo&&targetInfo.dev===sourceInfo.dev&&targetInfo.ino===sourceInfo.ino)throw fail('Choose a separate backup destination.',400);
+    await backup(this.db,destination);chmodSync(destination,0o600);
+    // Worker ownership belongs to the running store, not a restorable snapshot.
+    // Touch only the completed copy; all durable metadata and the live lease stay.
+    const copied=new DatabaseSync(destination);
+    try{copied.prepare("DELETE FROM metadata WHERE key='worker'").run();}finally{copied.close();}
+    return destination;
+  }
   close() { this.db.close(); }
 }

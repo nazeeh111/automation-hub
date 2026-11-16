@@ -47,6 +47,6 @@ test('changed sources stay inspectable through failed reads, reprepare and exact
 });
 
 
-test('filtering beside a desktop inspector keeps the deliberately focused search control',async({page})=>{
- seed(9);await open(page);await page.locator('[data-job-id="review-6"]').click();await expect(page.locator('.application-inspector')).toBeVisible();const search=page.getByLabel('Search applications',{exact:true});await search.click();await search.pressSequentially('Example Robotics');await expect(search).toHaveValue('Example Robotics');await expect(search).toBeFocused();await expect(page.locator('.application-inspector')).toHaveCount(0);await expect(page.locator('.application-row')).toHaveCount(5);
+test('closing full review preserves deliberate header focus and subsequent queue filtering',async({page})=>{
+ seed(9);await open(page);await page.locator('[data-job-id="review-6"]').click();await expect(page.locator('.application-inspector')).toBeVisible();const outside=page.getByRole('button',{name:'Refresh dashboard',exact:true});await outside.focus();await page.keyboard.press('Escape');await expect(outside).toBeFocused();const search=page.getByLabel('Search applications',{exact:true});await search.click();await search.pressSequentially('Example Robotics');await expect(search).toHaveValue('Example Robotics');await expect(search).toBeFocused();await expect(page.locator('.application-inspector')).toHaveCount(0);await expect(page.locator('.application-row')).toHaveCount(5);
 });

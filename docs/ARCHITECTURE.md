@@ -2,7 +2,7 @@
 
 Automation Hub serves a React UI from a loopback Node.js process. The same process exposes a local API, owns the SQLite-backed ledger and coordinates fixed service methods. It is a single-user application, with a separate synthetic workspace for rehearsal.
 
-Home gives each registered automation one row containing its saved status, next useful action and known workflow. The internship path is a semantic ordered list, vertical on narrow screens. Its five stages are unweighted process descriptions; current work and employer-confirmed receipts link to their matching ledger records. Priority questions open their exact retained decision. External workflows show only observed metadata and retain execution and scheduling in n8n.
+`HubNavigation` owns global navigation and the contextual workspace sections; `studio.css` owns shell, tokens and responsive layout. Shared controls remain in `styles.css`; the old workbench and journey stylesheets are retired. Home gives each registered automation one row containing its saved status, next useful action and known workflow. The optional internship guide is a semantic ordered list, vertical on narrow screens. Its five stages are unweighted process descriptions; current work and employer-confirmed receipts link to their matching ledger records. Priority questions open their exact retained decision. External workflows show only observed metadata and retain execution and scheduling in n8n.
 
 `server/index.mjs` owns HTTP/session control and workspace admission. `Store` persists records, while `Engine` coordinates bounded application preparation and dispatch. The browser adapter handles supported employer pages. There is no general model-directed tool executor.
 
@@ -43,3 +43,11 @@ Both document approval routes share a transaction that checks the current awaiti
 Private worker control separates opening a display from shutdown. An exact owner-bound request uses the ordinary close/drain path; the client reports stopped only after the original process exits and original control entries disappear. The native maintenance panel remains latched until explicit reopen. Startup messages admit only fixed diagnostic codes, and explicit optional tool/cache paths never fall back silently.
 
 Private control entries are published ready to read: the socket is private at bind and the completed owner record is atomically linked without replacing a newer record. Clients retain strict owner, inode and permission checks; startup publication does not retry a denied boundary.
+
+## View and artifact recovery boundaries
+
+`DecisionWorkspace` selects one current question while keeping current forms mounted and hidden/inert, preserving scoped answer and File state. `DocumentLibrary` owns source/version selection and preview without granting approval. Wide application review hides the still-mounted queue; a scope-bound return intent restores its row only when focus belongs to the closing review.
+
+`RecoveryBoundary` contains unexpected render/lifecycle errors at application and optional review/library boundaries. Its safe fallback never exposes raw exception data or replays business actions. Only the native root fallback signals an actually committed recovery surface through the existing launch generation. Request decoding rejects malformed successful responses; uncertain mutations require workspace confirmation. Modal generation/edit snapshots separate asynchronous results from newer input. Stale failures use input-free feedback and retain reconnect access rather than disappearing.
+
+A successful manual résumé selection commits its selection ID with the prepared package. Failed source/render work or ownership takeover preserves the prior package and selection. Served originals, previews, packages and supporting files share owned nonsymlink ancestry checks, no-follow regular descriptor reads and a bounded size. A completed backup copy excludes only its transient worker lease; live lease acquisition and refusal remain unchanged.

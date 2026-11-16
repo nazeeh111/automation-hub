@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile,writeFile,mkdir,unlink,symlink,rename} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {createHub} from '../server/index.mjs';
+
+async function fixture(t){
+ const directory=await mkdtemp(path.join(tmpdir(),'hub-private-file-api-')),hub=await createHub({directory,port:0}),ctx=hub.context(false),store=ctx.store;clearInterval(ctx.engine.timer);ctx.engine.timer=null;t.after(async()=>{await hub.close();await rm(directory,{recursive:true,force:true});});
+ store.put('profile',{id:'main',fullName:'Synthetic Candidate',email:'synthetic@example.test',answers:{}});const text='# Synthetic Candidate\n\n## Projects\n### Controlled simulation\n- Built a simulated sensor prototype in Python.\n\n## Skills\nPython';const imported=await ctx.resumes.import([{name:'Synthetic original.md',content:Buffer.from(text).toString('base64')}]);assert.deepEqual(imported.errors,[]);const resume=store.list('resume')[0],sourceUrl='https://jobs.lever.co/synthetic/role',job=store.put('job',{id:'role',identity:'main|lever:us:synthetic|role|',url:sourceUrl,title:'Engineering intern',employer:'Synthetic Labs',state:'needs_you',revision:0,posting:{title:'Engineering intern',employer:'Synthetic Labs',text:'Python experience is preferred.',sourceHash:'synthetic-source',sourceUrl,open:true}}),pkg=await ctx.resumes.select(job,resume.id);store.put('job',{...store.get('job','role'),packageId:pkg.id});
+ const question={kind:'document',type:'file',label:'Supporting file',name:'support',required:true,multiple:false,accept:'.pdf',sourceUrl:sourceUrl+'/apply'};store.put('decision',{id:'document-question',jobId:'role',code:'form_questions',state:'open',details:{questions:[question]}});const supporting=await ctx.supporting.attach({decisionId:'document-question',questionLabel:question.label,confirmed:true,file:{name:'Synthetic supporting.pdf',content:(await readFile(pkg.finalPath)).toString('base64')}});
+ const auth=await fetch(hub.launchUrl,{redirect:'manual'}),cookie=auth.headers.get('set-cookie').split(';')[0],get=async(id,query='',authenticated=true)=>{const response=await fetch(hub.baseUrl+'/api/files/'+encodeURIComponent(id)+query,{headers:authenticated?{Cookie:cookie}:{},signal:AbortSignal.timeout(3000)});return {status:response.status,type:response.headers.get('content-type'),disposition:response.headers.get('content-disposition'),bytes:Buffer.from(await response.arrayBuffer())};};
+ return {directory,hub,ctx,store,resume,pkg,supporting,get};
+}
+
+test('owned original, preview, package and verified supporting downloads return their actual retained bytes',async t=>{
+ const f=await fixture(t);for(const [document,variants] of [[f.resume,[['?variant=original',f.resume.originalPath],['',f.resume.previewPath]]],[f.pkg,[['?variant=original',f.pkg.finalPath],['?variant=final&download=1',f.pkg.finalPath]]],[f.supporting,[['?variant=original',f.supporting.originalPath],['?download=1',f.supporting.previewPath]]]])for(const [query,file] of variants){const response=await f.get(document.id,query);assert.equal(response.status,200);assert.deepEqual(response.bytes,await readFile(file));if(query.includes('download'))assert.match(response.disposition,/^attachment;/);}
+ assert.equal((await f.get(f.resume.id,'',false)).status,401);assert.equal((await f.get('missing-document')).status,404);assert.equal(f.store.get('campaign','main').enabled,false);assert.equal(f.store.list('run').length,0);
+});
+
+test('source and package file links cannot follow final or ancestor symlinks outside their workspace',async t=>{
+ const f=await fixture(t),outside=path.join(f.directory,'outside-workspace'),marker=Buffer.from('Synthetic outside-workspace marker');await mkdir(outside,{mode:0o700});const external=path.join(outside,'marker.txt');await writeFile(external,marker,{mode:0o600});
+ for(const [document,file,query] of [[f.resume,f.resume.originalPath,'?variant=original'],[f.resume,f.resume.previewPath,''],[f.pkg,f.pkg.finalPath,'?download=1']]){const original=await readFile(file);await unlink(file);await symlink(external,file);const response=await f.get(document.id,query);assert.equal(response.status,404);assert(!response.bytes.equals(marker));assert(!response.bytes.toString().includes(f.directory));await unlink(file);await writeFile(file,original,{mode:0o600});assert.equal((await f.get(document.id,query)).status,200);}
+ const sourceDirectory=path.dirname(f.resume.originalPath),saved=sourceDirectory+'-preserved';await writeFile(path.join(outside,path.basename(f.resume.originalPath)),marker,{mode:0o600});await rename(sourceDirectory,saved);await symlink(outside,sourceDirectory);const linked=await f.get(f.resume.id,'?variant=original');assert.equal(linked.status,404);assert(!linked.bytes.equals(marker));await unlink(sourceDirectory);await rename(saved,sourceDirectory);assert.equal((await f.get(f.resume.id,'?variant=original')).status,200);assert.equal(f.store.get('campaign','main').enabled,false);assert.equal(f.store.list('run').length,0);
+});

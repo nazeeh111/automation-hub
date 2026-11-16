@@ -14,10 +14,10 @@ test('Home brings real saved questions before the process and opens the exact de
   for(const width of [1440,390,320]){
    await page.setViewportSize({width,height:900});const shelf=page.getByRole('complementary',{name:'Waiting for you',exact:true}),first=shelf.getByRole('button').first();
    await expect(first).toContainText('Review saved access 0');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-   const bounds=await first.boundingBox(),nav=await page.locator('.sidebar').boundingBox();expect(bounds.y+bounds.height).toBeLessThan(width<700?nav.y:900);
+   const bounds=await first.boundingBox(),nav=await page.locator('.global-navigation').boundingBox();expect(bounds.y+bounds.height).toBeLessThan(width<700?nav.y:900);
    expect(await page.locator('.home-attention-shelf').evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('.home-process'))&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
    await expect(page.getByRole('button',{name:'Open workspace',exact:true})).toHaveCount(0);await first.focus();await page.keyboard.press('Enter');await expect(page.locator('[data-attention-id="switchboard-question-0"] h2')).toBeFocused();
-   const index=page.getByRole('region',{name:'Saved question index',exact:true});await expect(index.getByLabel('Jump to a saved question',{exact:true})).toBeVisible();expect((await index.boundingBox()).height).toBeLessThan(100);
+   const choices=page.getByRole('navigation',{name:'Choose a saved question',exact:true});if(width<700){const back=page.getByRole('button',{name:'All saved questions',exact:true}),box=await back.boundingBox(),header=await page.locator('.studio-topbar').boundingBox();expect(box.y).toBeGreaterThanOrEqual(header.y+header.height);expect(box.y+box.height).toBeLessThanOrEqual(900);await back.click();}await expect(choices).toBeVisible();await expect(choices.getByRole('button')).toHaveCount(4);for(const id of [0,1,2,3])await expect(choices.locator(`[data-question-id="switchboard-question-${id}"]`)).toBeVisible();await choices.locator('[data-question-id="switchboard-question-1"]').click();await expect(page.locator('[data-attention-id="switchboard-question-1"] h2')).toBeFocused();
    await page.getByRole('button',{name:'Home',exact:true}).click();
   }
   expect(store.list('decision').filter(item=>item.state==='open')).toHaveLength(4);expect(store.list('run')).toHaveLength(0);expect(store.get('campaign','main').enabled).toBe(false);

@@ -65,7 +65,7 @@ test('late history from a previous selected application cannot replace the curre
  const oldResponse=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/jobs/history-alpha/events');
  try{
   await open(page,'history-alpha');await arrived.promise;await expect(history(page)).toContainText('Loading saved application history');
-  await page.locator('[data-job-id="history-beta"]').click();await page.getByRole('tab',{name:/^Evidence/}).click();await expect(history(page)).toContainText('Only the secondary application belongs here');
+  await page.getByRole('button',{name:'Close application inspector',exact:true}).click();await page.locator('[data-job-id="history-beta"]').click();await page.getByRole('tab',{name:/^Evidence/}).click();await expect(history(page)).toContainText('Only the secondary application belongs here');
  }finally{held.resolve();}
  await (await oldResponse).finished();
  await expect(events(page)).toHaveCount(1);await expect(history(page)).not.toContainText('Retained primary event');

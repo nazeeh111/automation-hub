@@ -1,7 +1,7 @@
 import './runtime.mjs';
 import http from 'node:http';
 import { randomBytes,createHash,randomUUID,timingSafeEqual } from 'node:crypto';
-import { mkdir,readFile,stat,writeFile,cp,rename,rm,chmod,lstat } from 'node:fs/promises';
+import { mkdir,readFile,stat,writeFile,cp,rename,rm,chmod,lstat,open } from 'node:fs/promises';
 import { existsSync,constants } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -24,6 +24,18 @@ const now=()=>new Date().toISOString();
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const same=(a,b)=>{const x=Buffer.from(a||''),y=Buffer.from(b||'');return x.length===y.length&&timingSafeEqual(x,y);};
 const idFor=s=>createHash('sha256').update(s).digest('hex').slice(0,24);
+// All retained document variants share the same owned-file boundary. Check
+// directory links as well as the final component; read only a bounded regular FD.
+async function readPrivateDocument(directory,file){
+ let descriptor;
+ try{
+  const target=path.resolve(file),relative=path.relative(directory,target);if(!relative||relative==='..'||relative.startsWith('..'+path.sep)||path.isAbsolute(relative))throw new Error();
+  let folder=directory;for(const component of ['',...relative.split(path.sep).slice(0,-1)]){if(component)folder=path.join(folder,component);const info=await lstat(folder);if(!info.isDirectory()||info.isSymbolicLink()||typeof process.getuid==='function'&&info.uid!==process.getuid())throw new Error();}
+  descriptor=await open(target,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const info=await descriptor.stat(),limit=12*1024*1024;if(!info.isFile()||info.size>limit||typeof process.getuid==='function'&&info.uid!==process.getuid())throw new Error();
+  const chunks=[];let total=0;for(;;){const buffer=Buffer.allocUnsafe(Math.min(65536,limit-total+1)),{bytesRead}=await descriptor.read(buffer,0,buffer.length,null);if(!bytesRead)break;total+=bytesRead;if(total>limit)throw new Error();chunks.push(buffer.subarray(0,bytesRead));}return Buffer.concat(chunks,total);
+ }catch{throw Object.assign(fail('Document preview unavailable. Restore the retained file or import a current original.',404),{code:'DOCUMENT_FILE_UNAVAILABLE'});}
+ finally{await descriptor?.close();}
+}
 export function canonicalJob(raw){
  const url=new URL(raw.trim());if(url.protocol!=='https:'||url.username||url.password||url.hash.startsWith('#token'))throw fail('Use a public HTTPS job URL without embedded credentials.');
  url.hash='';url.hostname=url.hostname.toLowerCase();if(url.port&&url.port!=='443')throw fail('Only standard HTTPS job URLs are supported.');
@@ -128,7 +140,7 @@ export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(h
     store.transaction(()=>{
      const obsolete=store.list('decision').filter(d=>d.jobId===job.id&&d.code==='package_review'&&d.state==='open'&&(d.details?.packageId!==pkg.id||d.details?.hash&&d.details.hash!==pkg.hash));
      for(const review of obsolete)store.put('decision',{...review,state:'superseded',supersededAt:now(),supersededByPackageId:pkg.id});
-     const saved=store.put('job',{...current,packageId:pkg.id,state:waiting?'needs_you':'ready',revision:current.revision+1,nextAction:waiting?(!limits.allowed?limits.nextAction:open?.message||open?.question||'Resolve the remaining saved decisions'):'Review final resume before submission'});
+     const saved=store.put('job',{...current,packageId:pkg.id,selectedResumeId:body.resumeId,state:waiting?'needs_you':'ready',revision:current.revision+1,nextAction:waiting?(!limits.allowed?limits.nextAction:open?.message||open?.question||'Resolve the remaining saved decisions'):'Review final resume before submission'});
      if(obsolete.length&&!pkg.approved){engine.hold(saved,'package_review','Review the replacement résumé before it can be submitted.',{packageId:pkg.id,hash:pkg.hash});if(waiting)store.put('job',{...store.get('job',job.id),nextAction:saved.nextAction,decisionId:open?.id||saved.decisionId});}
     });return publicDocument(pkg);
    }catch(error){const latest=store.get('job',job.id);if(latest.revision===fenced.revision&&latest.state==='preparing')store.put('job',{...latest,state:job.state,revision:latest.revision+1,nextAction:'Resume selection did not finish. Check the source and try again.'});throw error;}
@@ -209,7 +221,7 @@ export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(h
     const id=decodeURIComponent(url.pathname.slice('/api/evidence/'.length)),ctx=context(session.demo);if(!/^[A-Za-z0-9_-]{1,200}$/.test(id))throw fail('Receipt capture not found.',404);const evidence=ctx.store.list('job').flatMap(j=>j.evidence||[]).find(e=>e.id===id);const file=evidence?.type==='employer_confirmation'?evidence.path:null;if(!file||!file.endsWith('.png')||!path.resolve(file).startsWith(path.join(ctx.dir,'evidence')+path.sep))throw fail('Receipt capture not found.',404);const bytes=await readFile(file,{flag:constants.O_RDONLY|constants.O_NOFOLLOW});res.setHeader('Content-Type','image/png');res.end(bytes);return;
    }
    if(url.pathname.startsWith('/api/files/')&&req.method==='GET'){
-    const id=decodeURIComponent(url.pathname.slice('/api/files/'.length));const ctx=context(session.demo);const doc=ctx.store.get('resume',id)||ctx.store.get('package',id)||ctx.store.get('supportingDocument',id);if(!doc)throw fail('Document not found.',404);if(doc.renderVerification&&doc.binding)await ctx.supporting.verifyStored(doc);const original=url.searchParams.get('variant')==='original';const file=original?(doc.originalPath||doc.finalPath):(doc.previewPath||doc.finalPath||doc.originalPath);if(!file||!path.resolve(file).startsWith(ctx.dir+path.sep))throw fail('Document preview unavailable.',404);const bytes=await readFile(file);res.setHeader('Content-Type',file.endsWith('.pdf')?'application/pdf':file.endsWith('.docx')?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'text/plain; charset=utf-8');res.setHeader('Content-Disposition',`${url.searchParams.has('download')?'attachment':'inline'}; filename="${doc.id}${path.extname(file)}"`);res.end(bytes);return;
+    const id=decodeURIComponent(url.pathname.slice('/api/files/'.length));const ctx=context(session.demo);const doc=ctx.store.get('resume',id)||ctx.store.get('package',id)||ctx.store.get('supportingDocument',id);if(!doc)throw fail('Document not found.',404);if(doc.renderVerification&&doc.binding)await ctx.supporting.verifyStored(doc);const original=url.searchParams.get('variant')==='original';const file=original?(doc.originalPath||doc.finalPath):(doc.previewPath||doc.finalPath||doc.originalPath);if(!file||!path.resolve(file).startsWith(ctx.dir+path.sep))throw fail('Document preview unavailable.',404);const bytes=await readPrivateDocument(ctx.dir,file);res.setHeader('Content-Type',file.endsWith('.pdf')?'application/pdf':file.endsWith('.docx')?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'text/plain; charset=utf-8');res.setHeader('Content-Disposition',`${url.searchParams.has('download')?'attachment':'inline'}; filename="${doc.id}${path.extname(file)}"`);res.end(bytes);return;
    }
    if(req.method!=='GET')throw fail('Route not found.',404);
    if(dev){vite.middlewares(req,res,()=>{res.writeHead(404);res.end('Not found');});return;}
