@@ -35,6 +35,8 @@ jobs:
       - name: Install browser engines
         run: npm run browser:install
       - name: Install document renderer
-        run: brew install --cask libreoffice
+        run: |
+          brew update
+          brew install --cask libreoffice
       - name: Check synthetic workflows and production build
         run: npm run check
