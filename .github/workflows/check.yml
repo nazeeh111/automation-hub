@@ -17,8 +17,6 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/automation-hub-browsers
-      HUB_DATA_DIR: ${{ runner.temp }}/automation-hub-data
       HUB_SOFFICE_BIN: /Applications/LibreOffice.app/Contents/MacOS/soffice
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -28,6 +26,10 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      - name: Configure isolated fixture paths
+        run: |
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/automation-hub-browsers" >> "$GITHUB_ENV"
+          echo "HUB_DATA_DIR=$RUNNER_TEMP/automation-hub-data" >> "$GITHUB_ENV"
       - name: Install locked packages
         run: npm ci --ignore-scripts
       - name: Install browser engines
