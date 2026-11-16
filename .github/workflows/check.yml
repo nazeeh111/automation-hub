@@ -38,5 +38,7 @@ jobs:
         run: |
           brew update
           brew install --cask libreoffice
+      - name: Verify document renderer
+        run: node scripts/check-renderer.mjs
       - name: Check synthetic workflows and production build
         run: npm run check

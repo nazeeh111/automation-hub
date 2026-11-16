@@ -18,7 +18,7 @@ function seed(number=3,{long=false}={}){
 async function openDiscover(page){
  await page.goto(hub.launchUrl);
  await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Open workspace',exact:true}).click();
+ await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();
  await page.locator('#workspace-tab-discover').click();
  await expect(page.getByRole('heading',{name:'Internships',exact:true})).toBeVisible();
  await expect(page.locator('.jd-results-layout')).toHaveAttribute('aria-busy','false');
@@ -74,7 +74,7 @@ test('search reaches beyond the first page, favorites persist and queuing stays 
  expect(hub.context(false).store.list('job')).toHaveLength(1);
  expect(hub.context(false).store.list('job')[0].state).toBe('imported');
  expect(hub.context(false).store.get('campaign','main').enabled).toBe(false);
- await page.reload();await page.getByRole('button',{name:'Open workspace',exact:true}).click();await page.locator('#workspace-tab-discover').click();
+ await page.reload();await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();await page.locator('#workspace-tab-discover').click();
  await page.getByRole('button',{name:/^Saved 1$/}).click();
  await expect(page.locator('.jd-job-card')).toHaveCount(1);
  await expect(page.locator('.jd-job-card')).toContainText('Photonics hardware internship');

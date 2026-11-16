@@ -22,7 +22,7 @@ test.afterEach(async({page})=>{
 test('a pending real resume read cannot dispatch after another tab switches to fixture and the UI refreshes',async({page})=>{
  const filename='Pending real workspace intent.md';let importDispatches=0;
  page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/import/resumes')importDispatches++;});
- await page.getByRole('button',{name:'Open workspace',exact:true}).click();
+ await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();
  await page.locator('#workspace-tab-resumes').click();
  await page.getByRole('button',{name:'Import resumes',exact:true}).first().click();
  await page.evaluate(target=>{

@@ -55,6 +55,7 @@ function isMatch(evidence,job,profile,intent) {const artifacts=value=>JSON.strin
 export class Engine {
   constructor({store,directory,resumes,adapter,demo=false,intervalMs=2000,vault=null,accountAdapter=null,priorSubmissionResolver=null,supportingService=null}={}) {
     this.store=store;this.directory=directory;this.resumes=resumes;this.vault=vault;this.accountAdapter=accountAdapter;this.priorSubmissionResolver=priorSubmissionResolver;this.supportingService=supportingService;this.adapter=adapter||new BrowserAdapter({directory,accountAdapter});if(accountAdapter&&!this.adapter.accountAdapter)this.adapter.accountAdapter=accountAdapter;this.demo=demo;this.intervalMs=intervalMs;this.ownerId=randomUUID();this.lastWakeAt=Date.now();this.busy=false;this.stopping=false;this.lastWaitingReviewAt=null;
+    this.workerStartedAt=now();this.lastTickStartedAt=null;this.lastTickCompletedAt=null;this.lastTickErrorAt=null;this.lastTickErrorCode=null;this.activePhase=null;this.activeJobId=null;this.activeStartedAt=null;
     if(this.adapter.fixture&&!demo) throw fail('A synthetic adapter requires an isolated demo engine',500);
     this.store.acquireWorker?.(this.ownerId);this.recover();
   }
@@ -76,6 +77,9 @@ export class Engine {
     });
   }
   start() {if(this.released)throw fail('A stopped worker cannot be restarted. Create a fresh engine.');if(this.timer)return;this.stopping=false;this.timer=setInterval(()=>this.tick().catch(()=>{}),this.intervalMs);this.timer.unref?.();}
+  // Scheduler observations are in memory and are not application outcomes. A
+  // completed idle/busy check proves only that a scheduling iteration returned.
+  runtimeStatus(){return {workerId:this.ownerId,startedAt:this.workerStartedAt,scheduled:Boolean(this.timer),busy:this.busy,stopping:this.stopping,stopped:this.stopComplete===true,lastTickStartedAt:this.lastTickStartedAt,lastTickCompletedAt:this.lastTickCompletedAt,lastErrorCode:this.lastTickErrorCode,lastErrorAt:this.lastTickErrorAt,activePhase:this.activePhase,activeJobId:this.activeJobId,activeStartedAt:this.activeStartedAt};}
   async stop({releaseWorker=true}={}) {this.stopping=true;if(this.timer)clearInterval(this.timer);this.timer=null;if(!this.stopWork)this.stopWork=(async()=>{let failure;try{await this.adapter.close?.();}catch(error){failure=error;}if(this.inFlight)await Promise.allSettled([this.inFlight]);this.stopComplete=true;if(failure)throw failure;})();try{await this.stopWork;}finally{if(releaseWorker&&this.stopComplete)this.releaseWorker();}}
   releaseWorker(){if(this.released)return;if(!this.stopComplete)throw fail('Wait for the worker to stop before releasing application storage.');this.store.releaseWorker?.(this.ownerId);this.released=true;}
   campaign(){return this.store.get('campaign','main');}
@@ -233,6 +237,8 @@ export class Engine {
   }
   async tick() {
     if(this.stopping)return {busy:this.busy};
+    this.lastTickStartedAt=now();let tickFailed=false;
+    try{
     const localNow=Date.now();if(this.lastWaitingReviewAt===null||localNow<this.lastWaitingReviewAt||localNow-this.lastWaitingReviewAt>=60000){reviewWaitingDecisions(this.store,{now:localNow});this.lastWaitingReviewAt=localNow;}
     const wakeGap=localNow-this.lastWakeAt;this.lastWakeAt=localNow;
     if(wakeGap>300000&&this.campaign().status==='running') {const c=this.campaign();this.store.put('campaign',{...c,status:'paused',revision:(c.revision||0)+1});this.store.event(null,'sleep_recovery',{detail:'Campaign paused after the computer was inactive. Resume when ready.'});}
@@ -243,9 +249,17 @@ export class Engine {
     const job=deadlinePriority(jobs.filter(j=>j.state==='ready'&&active||j.state==='imported'&&(active||j.preparationRequested)&&(!reasoningBusy||!!j.selectedResumeId)))[0];
     if(!job)return {idle:true};
     this.busy=true;
+    this.activePhase=job.state==='ready'?'apply':'prepare';this.activeJobId=job.id;this.activeStartedAt=now();
     const work=job.state==='ready'?this.apply(job,campaign):this.prepare(job,campaign);this.inFlight=work;
     try {return await work;}
-    finally {if(this.inFlight===work)this.inFlight=null;this.busy=false;}
+    finally {if(this.inFlight===work){this.inFlight=null;this.activePhase=null;this.activeJobId=null;this.activeStartedAt=null;}this.busy=false;}
+    }catch(error){
+      tickFailed=true;this.lastTickErrorAt=now();this.lastTickErrorCode='WORKER_TICK_FAILED';
+      // Never copy exception text or arbitrary adapter error codes into status.
+      // Direct callers retain the original rejection; the existing timer catch
+      // consumes it only after this bounded observation has been recorded.
+      throw error;
+    }finally{if(!tickFailed)this.lastTickCompletedAt=now();}
   }
   reviewApplicationLimits(job,profile=this.store.get('profile','main')){const current=this.job(job.id);if(current.revision!==job.revision)throw fail('The application changed while its employer limits were being checked.');const report=assessApplicationLimits({job,profile,jobs:this.store.list('job'),attempts:this.store.list('run'),userCap:this.campaign().rules.maxPerEmployer});const saved=this.store.put('job',{...current,applicationLimitReport:report});if(!report.allowed)this.hold(saved,report.needsReview?'application_limit_review':report.confirmed.length?'application_limit_reached':'employer_limit',report.nextAction,{report,manualOnly:report.needsReview});else for(const decision of this.store.list('decision'))if(decision.jobId===job.id&&decision.state==='open'&&['application_limit_review','application_limit_reached','employer_limit'].includes(decision.code))this.store.put('decision',{...decision,state:'resolved',answer:'Employer limits rechecked against current source evidence and reservations',resolvedAt:now()});return report;}
   reviewRequirements(job,pkg,profile=this.store.get('profile','main')) {const current=this.job(job.id);if(current.revision!==job.revision)throw fail('The application changed while its requirements were being reviewed.');const report=assessRequirements({job,profile,pkg,store:this.store});const saved=this.store.put('job',{...current,requirementLedger:report.entries,requirementDiagnostics:report.diagnostics||[]});if(report.unresolvedMandatory.length)this.hold(saved,'eligibility_review',requirementMessage(report),requirementDetails(report));return report;}

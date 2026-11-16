@@ -18,6 +18,17 @@ export function workflowStatus(automation,connection) {
   return workflow.isArchived===true?{tone:'neutral',text:'Archived in n8n'}:workflow.active===true?{tone:'ready',text:'Active in n8n'}:workflow.active===false?{tone:'neutral',text:'Inactive in n8n'}:{tone:'limited',text:'Activation unknown'};
 }
 
+export function WorkflowOutcome({automation}){
+ const observation=automation.observation;
+ if(!observation)return null;
+ const execution=observation.executions?.[0];
+ const stamp=execution?.stoppedAt||execution?.startedAt;
+ return <div className={`n8n-outcome ${['error','crashed'].includes(execution?.status)?'has-error':''}`}>
+  <span>Last observed execution</span><strong>{execution?readable(execution.status):'None returned in this read'}</strong>{stamp&&<time dateTime={stamp}>{date(stamp)}</time>}
+  {automation.observationStatus!=='observed'&&<small>From an earlier observation. Refresh to check recent history.</small>}
+ </div>;
+}
+
 export function WorkflowObservation({automation:a}) {
   if(!a.observation&&!a.lastObservationAttemptAt)return null;
   const observation=a.observation,workflow=observation?.workflow;

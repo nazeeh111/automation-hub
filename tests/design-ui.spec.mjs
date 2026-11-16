@@ -18,7 +18,7 @@ test.beforeEach(async({page})=>{
  directory=await mkdtemp(path.join(tmpdir(),'hub-workbench-design-'));hub=await createHub({directory,port:0,open:false});populate();await page.goto(hub.launchUrl);await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();
 });
 test.afterEach(async({page})=>{await page.close();await hub?.close();await rm(directory,{recursive:true,force:true});});
-const discover=async page=>{await page.getByRole('button',{name:'Open workspace',exact:true}).click();await page.locator('#workspace-tab-discover').click();await expect(page.locator('.jd-job-card')).toHaveCount(40);};
+const discover=async page=>{await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();await page.locator('#workspace-tab-discover').click();await expect(page.locator('.jd-job-card')).toHaveCount(40);};
 const paint=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 async function measure(page){return page.evaluate(()=>{
  const visible=element=>{const box=element.getBoundingClientRect(),style=getComputedStyle(element);return box.width>0&&box.height>0&&style.visibility!=='hidden'&&style.display!=='none';};
@@ -52,7 +52,7 @@ if(process.env.HUB_DESIGN_BASELINE==='1'){
  test('page navigation resets position and heading focus without stealing tab focus',async({page},testInfo)=>{
   await discover(page);await page.evaluate(()=>window.scrollTo(0,1400));await page.getByRole('button',{name:'Home',exact:true}).click();await paint(page);
   expect(await page.evaluate(()=>scrollY)).toBe(0);await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeFocused();
-  await page.getByRole('button',{name:'Open workspace',exact:true}).click();const resumes=page.locator('#workspace-tab-resumes');await resumes.click();await page.keyboard.press('ArrowRight');await expect(page.locator('#workspace-tab-outcomes')).toBeFocused();await expect(page.locator('#workspace-tab-outcomes')).toHaveAttribute('aria-selected','true');
+  await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();const resumes=page.locator('#workspace-tab-resumes');await resumes.click();await page.keyboard.press('ArrowRight');await expect(page.locator('#workspace-tab-outcomes')).toBeFocused();await expect(page.locator('#workspace-tab-outcomes')).toHaveAttribute('aria-selected','true');
   await page.screenshot({path:testInfo.outputPath('navigation-focus-after.png')});
  });
  test('workbench feed uses the width, preserves source evidence and fits responsive layouts',async({page},testInfo)=>{

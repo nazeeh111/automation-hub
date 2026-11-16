@@ -42,3 +42,5 @@
   .n8n-connection .button { min-height:44px; max-width:100%; white-space:normal; }
   .n8n-setup input:not([type=checkbox]) { min-height:44px; }
 }
+.n8n-outcome{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin-top:10px;font-size:12px;line-height:1.6;color:#52627d}
+.n8n-outcome strong{font-size:12px!important;font-weight:600!important;color:#243146}.n8n-outcome.has-error strong{color:#8b5b16}.n8n-outcome small{flex-basis:100%;color:#52627d}

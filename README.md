@@ -2,7 +2,7 @@
 
 A local dashboard for personal automations, centered on finding and managing US internship applications, with an optional read-only view of existing n8n workflows.
 
-The internship workspace keeps employer-feed discovery, selected jobs, original resumes, scoped questions, reviewed documents and application evidence together. The light Mac workbench puts each automation’s state, next useful action and interactive application path together. Find in workspace (Command-K or Control-K) opens pages, exact saved applications and questions. n8n remains responsible for its own execution and schedules.
+The internship workspace keeps employer-feed discovery, selected jobs, original resumes, scoped questions, reviewed documents and application evidence together. The Automation Switchboard puts each automation’s state, next useful action, saved questions and connected application path together. Find in workspace (Command-K or Control-K) opens pages, exact saved applications and questions. Local reasoning activity, full per-application history and on-demand worker status make saved work easier to inspect and recover. n8n remains responsible for its own execution and schedules.
 
 This is an early macOS-first project. It is intended for one person on their own computer. Supported employer adapters currently cover Greenhouse and Lever, with local fixtures for their supported paths. Employer customizations and other portals need separate validation. A prepared document or a synthetic receipt does not establish a real submission or a hiring outcome.
 

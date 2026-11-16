@@ -8,6 +8,8 @@ export default function QuickOpen({open,onClose,data,ready,onNavigate,onJob,onDe
  const [query,setQuery]=useState(''),[active,setActive]=useState(0);
  const commands=useMemo(()=>[
   {id:'home',title:'Home',detail:'Your workflows and next action',kind:'Page',icon:'home',go:()=>onNavigate('home')},
+  {id:'automations',title:'Automations',detail:'Your local automation and linked n8n workflows',kind:'Page',icon:'grid',go:()=>onNavigate('automations')},
+  {id:'connections',title:'Connections',detail:'Reasoning activity, private access and recovery',kind:'Page',icon:'settings',go:()=>onNavigate('connections')},
   {id:'discover',title:'Browse US internships',detail:'Read public employer boards',kind:'Page',icon:'search',go:()=>onNavigate('discover')},
   {id:'applications',title:'Application queue',detail:'Selected roles, documents and progress',kind:'Page',icon:'briefcase',go:()=>onNavigate('applications')},
   {id:'resumes',title:'Résumé library',detail:'Originals and prepared versions',kind:'Page',icon:'file',go:()=>onNavigate('resumes')},

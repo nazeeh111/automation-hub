@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
 });
 test.afterEach(async ({page}) => { await page.close(); await hub?.close(); await rm(directory, { recursive: true, force: true });expect(pageErrors).toEqual([]); });
 
-async function clickWorkspace(page) { await page.getByRole('button', { name: 'Home', exact: true }).click(); await page.getByRole('button', { name: 'Open workspace', exact: true }).click(); }
+async function clickWorkspace(page) { await page.getByRole('button', { name: 'Home', exact: true }).click(); await page.getByRole('button', { name: /^(Open workspace|Open application queue|Review paused campaign)$/ }).click(); }
 async function connections(page) {await page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name:'Automations',exact:true}).click();await page.getByRole('button',{name:'Connections',exact:true}).click();}
 async function state(page) { return (await page.request.get(`${hub.baseUrl}/api/state`)).json(); }
 async function snapshot(page,testInfo,name){

@@ -92,10 +92,10 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
         config.userContentController.add(self, name: "hub")
         web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self; web.uiDelegate = self
-        web.underPageBackgroundColor = NSColor(calibratedRed: 246.0/255, green: 247.0/255, blue: 249.0/255, alpha: 1)
+        web.underPageBackgroundColor = NSColor(calibratedRed: 244.0/255, green: 246.0/255, blue: 248.0/255, alpha: 1)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 880), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Automation Hub"; window.minSize = NSSize(width: 680, height: 520)
-        window.backgroundColor = NSColor(calibratedRed: 246.0/255, green: 247.0/255, blue: 249.0/255, alpha: 1)
+        window.backgroundColor = NSColor(calibratedRed: 244.0/255, green: 246.0/255, blue: 248.0/255, alpha: 1)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("AutomationHubWindow")
         let container = NSView(); window.contentView = container

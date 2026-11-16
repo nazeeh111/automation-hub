@@ -93,7 +93,7 @@ test('a missing current version recovers through a finished original and exact r
 test('phone application has its own scroll and returns keyboard focus to its row',async({page},testInfo)=>{
  const store=hub.context(false).store;
  for(let index=0;index<60;index++)addJob(store,index,{state:'imported',nextAction:'Read and verify this selected posting',posting:{sourceHash:`synthetic-${index}`,text:'Synthetic saved posting. '.repeat(600)}});
- await refresh(page);await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Open workspace',exact:true}).click();
+ await refresh(page);await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/^(Open workspace|Open application queue|Review paused campaign)$/}).click();
  const row=page.locator('[data-job-id="journey-job-47"]');await row.focus();await page.keyboard.press('Enter');
  const inspector=page.locator('.application-inspector');await expect(inspector.locator('h2')).toBeFocused();await expect(inspector).toHaveAttribute('aria-modal','true');await expect(inspector.getByText('Back to applications',{exact:true})).toBeVisible();
  expect(await inspector.evaluate(element=>element.scrollHeight>element.clientHeight)).toBe(true);await inspector.evaluate(element=>element.scrollTop=element.scrollHeight);expect(await inspector.evaluate(element=>element.scrollTop)).toBeGreaterThan(0);expect(await page.evaluate(()=>document.body.style.overflow)).toBe('hidden');

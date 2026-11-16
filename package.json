@@ -10,7 +10,7 @@
     "start": "node scripts/launch.mjs",
     "dev": "node server/index.mjs --dev",
     "build": "node scripts/licenses.mjs && vite build",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test --test-concurrency=2 tests/*.test.mjs",
     "test:e2e": "node scripts/playwright.mjs test",
     "check": "npm run test && npm run build && npm run test:e2e",
     "browser:install": "node scripts/playwright.mjs install chromium firefox",
