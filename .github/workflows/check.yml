@@ -1,0 +1,38 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/automation-hub-browsers
+      HUB_DATA_DIR: ${{ runner.temp }}/automation-hub-data
+      HUB_SOFFICE_BIN: /Applications/LibreOffice.app/Contents/MacOS/soffice
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install locked packages
+        run: npm ci --ignore-scripts
+      - name: Install browser engines
+        run: npm run browser:install
+      - name: Install document renderer
+        run: brew install --cask libreoffice
+      - name: Check synthetic workflows and production build
+        run: npm run check

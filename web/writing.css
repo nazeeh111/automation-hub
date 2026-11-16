@@ -1,0 +1,136 @@
+/* Writing controls inherit the shared semantic palette; drafts are reviewable content. */
+.writing-question {
+  min-width: 0;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.writing-question:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.writing-question > .field { margin-bottom: 8px; }
+.writing-limits {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.writing-limit-error, .writing-field-error { color: var(--red); }
+.writing-field-error { font-size: 13px; line-height: 1.7; margin-top: 12px; }
+.writing-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 12px 0;
+  margin: 12px 0;
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.writing-review small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.writing-draft-tools { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.writing-draft-tools > summary, .writing-sources > summary {
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--secondary);
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1.6;
+}
+.writing-draft-tools > p { margin: 8px 0 20px; font-size: 13px; }
+.writing-draft-tools > .button { margin-bottom: 20px; }
+.writing-draft-error {
+  margin: 0 0 20px;
+  padding: 16px;
+  background: var(--negative-surface);
+  border: 1px solid var(--negative-boundary);
+  border-radius: 8px;
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.writing-draft-error > strong { display: block; font-weight: 500; }
+.writing-draft-error p { margin-top: 12px; font-size: 13px; }
+.writing-draft-error blockquote { padding-left: 12px; border-left: 2px solid var(--negative-boundary); margin: 12px 0; }
+.writing-draft-result {
+  padding: 20px;
+  margin-top: 20px;
+  border: 1px solid var(--frame);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.writing-draft-result-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.writing-draft-result-heading time { color: var(--muted); font-size: 12px; }
+.writing-draft-result > p { margin-top: 12px; font-size: 13px; }
+.writing-draft-text {
+  white-space: pre-wrap;
+  max-height: 420px;
+  overflow: auto;
+  background: var(--surface-input);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.writing-draft-arrival { color: var(--orange); }
+.writing-missing-facts {
+  border-left: 2px solid var(--orange);
+  background: var(--caution-surface);
+  padding: 16px;
+  margin-top: 20px;
+}
+.writing-missing-facts h4 { font-size: 14px; }
+.writing-missing-facts ul { margin: 8px 0 0; padding-left: 20px; color: var(--secondary); font-size: 13px; line-height: 1.7; }
+.writing-sources { margin-top: 16px; border-top: 1px solid var(--line); }
+.writing-source { padding: 16px 0; border-top: 1px solid var(--line-soft); }
+.writing-source > strong { display: block; color: var(--secondary); font-size: 13px; font-weight: 500; }
+.writing-source blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid var(--frame); color: var(--secondary); font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+.writing-source > span { display: block; color: var(--muted); font-size: 12px; margin-top: 8px; }
+.writing-source a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; font-size: 13px; }
+@media (max-width: 760px) {
+  .writing-draft-result { padding: 16px; }
+  .writing-review { padding: 12px 0; }
+  .writing-draft-tools > .button, .writing-draft-result > .button { max-width: 100%; min-height: 44px; }
+}
+.requirement-questions, .supporting-question { min-width:0; margin:24px 0; }
+.requirement-questions > p, .supporting-question > p { font-size:13px; line-height:1.7; }
+.requirement-question { min-width:0; padding:20px 0; border:0; border-top:1px solid var(--line); margin-top:20px; }
+.requirement-question legend { font-size:12px; color:var(--muted); padding-right:12px; }
+.requirement-question blockquote { margin:12px 0; color:var(--secondary); font-size:15px; line-height:1.7; }
+.requirement-question > a, .supporting-question a { display:inline-flex; align-items:center; gap:8px; min-height:44px; font-size:13px; overflow-wrap:anywhere; }
+.requirement-choices { display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:12px; }
+.requirement-choices label { display:flex; align-items:center; gap:8px; min-height:44px; font-size:14px; }
+.supporting-question { border-top:1px solid var(--line); padding-top:24px; }
+.supporting-question h3 { font-size:16px; line-height:1.6; }
+.supporting-question > .field { margin-top:20px; }
+.supporting-selected,.supporting-retained { min-width:0; margin-top:16px; padding:16px; border:1px solid var(--frame); border-radius:8px; background:var(--surface); overflow-wrap:anywhere; }
+.supporting-selected > strong,.supporting-retained > strong { display:block; margin:8px 0; font-size:14px; }
+.supporting-selected > span { display:block; font-size:12px; color:var(--muted); }
+.supporting-file-links { display:flex; flex-wrap:wrap; gap:8px 20px; }
+.supporting-retained p { font-size:13px; line-height:1.7; }
+@media(max-width:760px){.supporting-question .button{min-height:44px;max-width:100%;white-space:normal;}.requirement-choices{gap:8px 16px;}}
+.choice-question { min-width:0; margin:24px 0; }
+.choice-question .field { margin:0; }
+@media(max-width:760px){.choice-question select{min-height:44px;max-width:100%;}}
+.application-limit-report { margin:24px 0; padding:20px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); min-width:0; }
+.application-limit-report h3 { font-size:16px; line-height:1.6; }
+.application-limit-report p { margin-top:12px; font-size:13px; line-height:1.7; }
+.limit-summary { display:flex; flex-wrap:wrap; gap:20px 28px; margin-top:20px; }
+.limit-summary dt { color:var(--muted); font-size:12px; line-height:1.7; }
+.limit-summary dd { margin:4px 0 0; color:var(--text); font-size:22px; line-height:1.3; }
+.limit-rule { border-left:2px solid var(--orange); padding:12px 16px; background:var(--caution-surface); margin-top:20px; overflow-wrap:anywhere; }
+.limit-rule > strong { color:var(--secondary); font-size:13px; font-weight:500; }
+.limit-rule blockquote { margin:12px 0; color:var(--secondary); font-size:14px; line-height:1.7; }
+.limit-rule a { display:inline-flex; align-items:center; gap:8px; min-height:44px; font-size:13px; }
+.limit-reservations { margin-top:20px; border-top:1px solid var(--line-soft); }
+.limit-reservations > summary { min-height:44px; padding:12px 0; color:var(--secondary); font-size:13px; line-height:1.7; cursor:pointer; }
+.limit-reservations ul { list-style:none; padding:0; }
+.limit-reservations li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 20px; padding:12px 0; border-bottom:1px solid var(--line-soft); font-size:13px; line-height:1.7; }
+.limit-reservations li strong { font-weight:500; }
+.limit-reservations li span { color:var(--muted); }
