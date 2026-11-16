@@ -40,5 +40,9 @@ jobs:
           brew install --cask libreoffice
       - name: Verify document renderer
         run: node scripts/check-renderer.mjs
-      - name: Check synthetic workflows and production build
-        run: npm run check
+      # Avoid parallel cold LibreOffice and browser fixtures on this Intel runner.
+      # Keep the complete service suite serial without extending renderer deadlines.
+      - name: Check synthetic service workflows
+        run: node --test --test-concurrency=1 tests/*.test.mjs
+      - name: Check production build and browser workflows
+        run: npm run build && npm run test:e2e
