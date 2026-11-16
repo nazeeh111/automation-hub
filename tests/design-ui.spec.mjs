@@ -36,16 +36,18 @@ if(process.env.HUB_DESIGN_BASELINE==='1'){
   await writeFile(testInfo.outputPath('audit-before.json'),JSON.stringify({home,discovery,inheritedNavigation:inherited},null,2));
  });
 }else{
- test('Home connects observed roles to the peer map and truthful application flow',async({page},testInfo)=>{
-  await expect(page.locator('.home-discovery-lead')).toContainText('61');
-  await expect(page.locator('.home-discovery-lead')).toContainText('US internships');
-  await expect(page.locator('.flow-inputs')).toContainText('0 selected roles');await expect(page.locator('.flow-receipt')).toContainText('0 confirmed');
-  await expect(page.locator('.workflow-links')).toBeVisible();await expect(page.locator('.registry-node')).toHaveCount(1);
+ test('Home keeps the internship next action and semantic flow together',async({page},testInfo)=>{
+  const automation=page.locator('.internship-automation'),lead=automation.locator('.home-discovery-lead');
+  await expect(lead).toContainText('61 US internships observed');await expect(lead).toContainText('Campaign off');
+  await expect(automation.getByRole('heading',{name:'Internship applications',exact:true})).toBeVisible();
+  await expect(automation.locator('.home-process-steps>li')).toHaveCount(5);
+  expect(await automation.locator('.home-process-stage strong').allTextContents()).toEqual(['Select roles','Check requirements','Prepare résumé','Apply','Confirm receipt']);
+  await expect(page.locator('.registry-root,.registry-node')).toHaveCount(0);await expect(page.getByText('No activity yet',{exact:true})).toHaveCount(0);await expect(page.getByText('No waiting decisions',{exact:true})).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('home-after.png'),fullPage:true});await writeFile(testInfo.outputPath('audit-home-after.json'),JSON.stringify(await measure(page),null,2));
-  await page.setViewportSize({width:320,height:844});await page.locator('.flow-outcomes').focus();await page.keyboard.press('Tab');await expect(page.locator('.hub-flow-review')).toBeFocused();const review=await page.locator('.hub-flow-review').boundingBox(),frame=await page.locator('.hub-flow-scroll').boundingBox();expect(review.x).toBeGreaterThanOrEqual(frame.x-1);expect(review.x+review.width).toBeLessThanOrEqual(frame.x+frame.width+1);expect(review.y+review.height).toBeLessThanOrEqual(frame.y+frame.height+1);await page.screenshot({path:testInfo.outputPath('home-review-320-after.png')});await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.scrollTo(0,0));
-  await page.getByRole('button',{name:'Browse US internships',exact:true}).click();await expect(page.locator('#workspace-tab-discover')).toHaveAttribute('aria-selected','true');await expect(page.locator('.jd-job-card')).toHaveCount(40);
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:width===1440?900:844});await page.evaluate(()=>window.scrollTo(0,0));const action=lead.getByRole('button',{name:'Browse US internships',exact:true}),box=await action.boundingBox();expect(box.y).toBeGreaterThanOrEqual(0);expect(box.y+box.height).toBeLessThan(width===1440?900:770);expect((await measure(page)).documentWidth).toBeLessThanOrEqual(width);await action.focus();await page.keyboard.press('Tab');await expect(lead.getByRole('button',{name:'Add selected links',exact:true})).toBeFocused();await page.screenshot({path:testInfo.outputPath(`home-${width}-after.png`)});}
+  await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Browse US internships',exact:true}).click();await expect(page.locator('#workspace-tab-discover')).toHaveAttribute('aria-selected','true');await expect(page.locator('.jd-job-card')).toHaveCount(40);
   expect(hub.context(false).store.list('job')).toHaveLength(0);expect(hub.context(false).store.get('campaign','main').enabled).toBe(false);
-  hub.context(false).store.put('job',{id:'design-selected-queue',title:'Synthetic selected role',employer:'Synthetic Design Lab',url:'https://fixture.example.invalid/design/selected',state:'imported',nextAction:'Read the exact saved posting'});await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await page.getByRole('button',{name:'Home',exact:true}).click();await expect(page.locator('.home-discovery-lead')).toContainText('Read the exact saved posting');await page.locator('.home-discovery-lead').getByRole('button',{name:'Open application queue',exact:true}).click();await expect(page.locator('#workspace-tab-applications')).toHaveAttribute('aria-selected','true');await expect(page.locator('.application-row')).toContainText('Synthetic selected role');
+  hub.context(false).store.put('job',{id:'design-selected-queue',title:'Synthetic selected role',employer:'Synthetic Design Lab',url:'https://fixture.example.invalid/design/selected',state:'imported',nextAction:'Read the exact saved posting'});await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await page.getByRole('button',{name:'Home',exact:true}).click();await expect(lead).toContainText('Add your finished résumés');await lead.getByRole('button',{name:'Open application queue',exact:true}).click();await expect(page.locator('#workspace-tab-applications')).toHaveAttribute('aria-selected','true');await expect(page.locator('.application-row')).toContainText('Synthetic selected role');
  });
  test('page navigation resets position and heading focus without stealing tab focus',async({page},testInfo)=>{
   await discover(page);await page.evaluate(()=>window.scrollTo(0,1400));await page.getByRole('button',{name:'Home',exact:true}).click();await paint(page);
@@ -54,7 +56,7 @@ if(process.env.HUB_DESIGN_BASELINE==='1'){
   await page.screenshot({path:testInfo.outputPath('navigation-focus-after.png')});
  });
  test('workbench feed uses the width, preserves source evidence and fits responsive layouts',async({page},testInfo)=>{
-  await discover(page);const first=page.locator('.jd-job-card').first();const bounds=await first.boundingBox();expect(bounds.y).toBeLessThan(430);expect(bounds.width).toBeGreaterThan(1000);
+  await discover(page);const first=page.locator('.jd-job-card').first();const bounds=await first.boundingBox();expect(bounds.y).toBeLessThan(page.viewportSize().height/2);expect(bounds.width).toBeGreaterThan(1000);
   await page.screenshot({path:testInfo.outputPath('discover-after.png')});await writeFile(testInfo.outputPath('audit-discover-after.json'),JSON.stringify(await measure(page),null,2));
   await first.getByRole('button',{name:/^Details for/}).click();await expect(page.getByRole('region',{name:'Job details'})).toContainText('Date not supplied by source');await expect(page.getByRole('button',{name:'Add to application queue',exact:true})).toBeVisible();await page.screenshot({path:testInfo.outputPath('role-after.png')});await page.getByRole('button',{name:'Close job details',exact:true}).click();
   for(const width of [768,390,320]){await page.setViewportSize({width,height:900});await page.evaluate(()=>window.scrollTo(0,0));await paint(page);expect((await measure(page)).documentWidth).toBeLessThanOrEqual(width);await page.screenshot({path:testInfo.outputPath(`discover-${width}-after.png`)});}
@@ -63,7 +65,7 @@ if(process.env.HUB_DESIGN_BASELINE==='1'){
   const store=hub.context(false).store;
   store.put('job',{id:'design-question-job',url:'https://fixture.example.invalid/design/role',title:'Synthetic question role',employer:'Synthetic Design Lab',state:'needs_you',posting:{sourceHash:'synthetic-design-posting'},answers:{}});
   store.put('decision',{id:'design-question',jobId:'design-question-job',type:'missing_fact',state:'open',title:'Confirm a candidate fact',question:'What should this exact employer use?'});
-  await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await page.locator('.home-discovery-lead').getByRole('button',{name:'Review Needs You',exact:true}).click();
+  await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await page.locator('.home-question-list>button').filter({hasText:'Confirm a candidate fact'}).click();
   await page.getByLabel('Your answer',{exact:true}).fill('Synthetic draft retained only in this workspace context');
   await page.getByRole('button',{name:'Home',exact:true}).click();await page.getByRole('button',{name:'Needs You',exact:true}).click();
   await expect(page.getByLabel('Your answer',{exact:true})).toHaveValue('Synthetic draft retained only in this workspace context');

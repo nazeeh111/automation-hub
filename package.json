@@ -15,7 +15,8 @@
     "check": "npm run test && npm run build && npm run test:e2e",
     "browser:install": "node scripts/playwright.mjs install chromium firefox",
     "app:build": "node scripts/build-native.mjs",
-    "app:open": "node scripts/open-native.mjs"
+    "app:open": "node scripts/open-native.mjs",
+    "service:stop": "node scripts/service-control.mjs stop"
   },
   "dependencies": {
     "fflate": "0.8.3",

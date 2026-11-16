@@ -7,9 +7,9 @@
   font-weight: 400;
   font-synthesis: none;
   --ease: cubic-bezier(.22,1,.36,1);
-  --bg: #101113;
-  --sidebar: #101113;
-  --surface: #181a1d;
+  --bg: #101214;
+  --sidebar: #101214;
+  --surface: #1b1e20;
   --raised: #212428;
   --surface-input: #151719;
   --surface-hover: #2b2e33;
@@ -18,10 +18,10 @@
   --frame: #454b54;
   --field-border: #626872;
   --control-border: #747c88;
-  --text: #f0f1f3;
-  --secondary: #bdc1c8;
+  --text: #eff3f0;
+  --secondary: #b8c2bc;
   --muted: #939aa4;
-  --green: #83dca0;
+  --green: #81dca0;
   --green-ink: #0b2a16;
   --green-hover: #9ae8b3;
   --positive-surface: #1c2420;

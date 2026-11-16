@@ -2,7 +2,7 @@
 
 Automation Hub serves a React UI from a loopback Node.js process. The same process exposes a local API, owns the SQLite-backed ledger and coordinates fixed service methods. It is a single-user application, with a separate synthetic workspace for rehearsal.
 
-The Home workbench groups registered workspaces separately from the selected application's progress. Its exact US internship observation total uses the retained discovery query with US-location and internship filters; selected/prepared/confirmed values come from their respective ledger records. A context panel prioritizes saved decisions and next actions. Map membership and external observations do not grant execution authority.
+Home gives each registered automation one row containing its saved status, next useful action and known workflow. The internship path is a semantic ordered list, vertical on narrow screens. Its five stages are unweighted process descriptions; current work and employer-confirmed receipts link to their matching ledger records. Priority questions open their exact retained decision. External workflows show only observed metadata and retain execution and scheduling in n8n.
 
 `server/index.mjs` owns HTTP/session control and workspace admission. `Store` persists records, while `Engine` coordinates bounded application preparation and dispatch. The browser adapter handles supported employer pages. There is no general model-directed tool executor.
 
@@ -27,3 +27,13 @@ Connection services keep employer accounts, encrypted app-vault secrets, read-on
 The macOS shell loads the local workspace in WebKit, coordinates the private launcher and saves completed downloads. Its display state combines a generation-bound trusted primary-root React commit with the matching primary WKNavigation finish, in either order. Old launches, other navigations and preview callbacks cannot satisfy that state. A bounded timeout or primary renderer termination exposes explicit recovery; it does not invoke automatic reload or application replay. Display readiness is separate from backend/business readiness.
 
 Packaging compiles the actual DisplayReadiness helper with the shell, then bundles the production backend, UI, Node and dependencies. Local runtime configuration, browser binaries, optional tools and user data remain outside published source.
+
+## Current-context transitions and recovery
+
+Inbox proposals bind the candidate/profile, posting, role/requisition and peer-job context, and acceptance rechecks them in the same transaction as the outcome. Conditional, negative or conflicting recognized outcome language remains reviewable. This is a bounded English classifier, not general language verification. Accepted proposal evidence is historical; later context checks add annotations instead of silently changing it.
+
+Both document approval routes share a transaction that checks the current awaiting package, candidate evidence, application state, historical receipts and dispatch intent. Approval preserves any other open question. Document approval may release only the current awaiting package. It cannot reopen completed/manual/uncertain work or override a recorded application. Dispatch independently checks retained evidence/history, so a stale scheduling transition cannot manufacture permission to apply again. Late worker errors obey current revision and manual ownership before writing ordinary failures.
+
+Private worker control separates opening a display from shutdown. An exact owner-bound request uses the ordinary close/drain path; the client reports stopped only after the original process exits and original control entries disappear. The native maintenance panel remains latched until explicit reopen. Startup messages admit only fixed diagnostic codes, and explicit optional tool/cache paths never fall back silently.
+
+Private control entries are published ready to read: the socket is private at bind and the completed owner record is atomically linked without replacing a newer record. Clients retain strict owner, inode and permission checks; startup publication does not retry a denied boundary.

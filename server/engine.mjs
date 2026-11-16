@@ -26,6 +26,17 @@ function retainedOutcome(current,job,profile) {
   if(current.revision===job.revision||!['submitted','interview','assessment','rejected','offer','closed'].includes(current.state))return false;
   return (current.evidence||[]).some(e=>e.jobId===job.id&&e.identity===job.identity&&e.employer===job.employer&&e.title===job.title&&String(e.email).toLowerCase()===String(profile?.email).toLowerCase()&&(e.type==='employer_email'&&e.source==='authorized_inbox'&&e.candidateId===(profile?.id||'main')||e.type==='candidate_attested_receipt'||e.type==='employer_confirmation'&&e.candidateId===(profile?.id||'main')));
 }
+function recordedApplicationOutcome(store,job,profile) {
+  const scoped=(job.evidence||[]).filter(e=>e.jobId===job.id&&e.identity===job.identity&&e.employer===job.employer&&e.title===job.title&&(e.type==='candidate_attested_receipt'&&(!e.candidateId||e.candidateId===(profile?.id||'main'))||['employer_confirmation','employer_email'].includes(e.type)&&e.candidateId===(profile?.id||'main')&&(e.type!=='employer_email'||e.source==='authorized_inbox')));
+  const evidence=scoped.filter(e=>String(e.email).toLowerCase()===String(profile?.email).toLowerCase());
+  if(!evidence.length&&scoped.length)return {evidence:scoped[0],outcome:null};
+  if(!evidence.length)return null;
+  const outcomes=new Set(['submitted','interview','assessment','rejected','offer','closed']),events=store.list('event');
+  const records=evidence.map(e=>{const event=events.findLast(event=>event.applicationId===job.id&&event.payload?.evidenceId===e.id&&['outcome_recorded','employer_message_recorded','submission_confirmed'].includes(event.type));return {evidence:e,outcome:outcomes.has(e.outcome)?e.outcome:outcomes.has(event?.payload?.outcome)?event.payload.outcome:e.type==='employer_confirmation'?'submitted':null,time:Date.parse(e.receivedAt||e.observedAt||event?.at||'')||0};}).sort((a,b)=>b.time-a.time);
+  // A receipt can arrive after a later employer response. It must not erase it.
+  const response=records.find(record=>record.outcome&&record.outcome!=='submitted');
+  return response||records.find(record=>record.outcome)||records[0];
+}
 const employerKey=applicationEmployerKey;
 function countReservations(store,employer) {const attempts=store.list('run');return store.list('job').filter(j=>isApplicationReservation(j,attempts)&&(!employer||employerKey(j.employer)===employerKey(employer))).length;}
 function isMatch(evidence,job,profile,intent) {const artifacts=value=>JSON.stringify((value||[]).map(d=>({documentId:d.documentId,hash:d.hash,questionHash:d.questionHash})).sort((a,b)=>a.questionHash.localeCompare(b.questionHash)));return artifacts(evidence?.supportingArtifacts)===artifacts(intent.uploadedSupportingArtifacts)&& evidence?.type==='employer_confirmation'&&evidence.jobId===job.id&&evidence.identity===job.identity&&evidence.candidateId===(profile.id||'main')&&String(evidence.email).toLowerCase()===String(profile.email).toLowerCase()&&evidence.title===job.title&&evidence.employer===job.employer&&evidence.attemptId===intent.id&&evidence.packageId===intent.packageId&&evidence.packageHash===intent.packageHash;}
@@ -137,6 +148,25 @@ export class Engine {
     if(name==='recordOutcome')return this.recordOutcome(body);
     throw fail('Unsupported queue action',400);
   }
+  reviewPackage({packageId,approved,decisionId}={}) {
+    if(typeof approved!=='boolean')throw fail('Choose whether to approve this exact document.',400);
+    return this.store.transaction(()=>{
+      const pkg=this.store.get('package',packageId);
+      if(!pkg?.verified)throw fail('No verified resume package is available.',404);
+      const job=this.store.get('job',pkg.jobId),profile=this.store.get('profile','main');
+      if(!job||job.packageId!==pkg.id||!['needs_you','ready'].includes(job.state)||job.priorApplicationDetected===true||['employer_confirmed','candidate_attested','fixture'].includes(job.submissionConfirmation)||recordedApplicationOutcome(this.store,job,profile)||this.store.get('run',job.activeAttemptId||'')?.dispatchedAt)throw fail('This package is no longer awaiting review. Open the application’s current state before changing its document.');
+      if(decisionId){
+        const decision=this.store.get('decision',decisionId);
+        if(!decision||decision.state!=='open'||decision.code!=='package_review'||decision.jobId!==job.id||decision.details?.packageId!==pkg.id||decision.details?.hash&&decision.details.hash!==pkg.hash)throw fail('This resume review refers to an older package. Review the current package instead.');
+      }
+      if(approved)try{this.resumes.assertPackageCurrent?.(pkg,profile);}catch(error){if(error.code==='resume_review')throw fail(error.message);throw error;}
+      const saved=this.store.put('package',{...pkg,approved,approvedAt:approved?now():null});
+      for(const d of this.store.list('decision'))if(d.jobId===job.id&&d.code==='package_review'&&d.state==='open'&&d.details?.packageId===pkg.id&&(!d.details.hash||d.details.hash===pkg.hash))this.store.put('decision',{...d,state:'resolved',answer:approved?'approve':'decline',resolvedAt:now()});
+      const other=this.store.list('decision').find(d=>(d.jobId===job.id||d.jobIds?.includes(job.id))&&d.state==='open');
+      this.store.put('job',{...job,state:approved&&!other?'ready':'needs_you',revision:(job.revision||0)+1,nextAction:other?(other.message||other.title||'Resolve the saved decision'):approved?'Ready for enabled campaign':'Choose or prepare another resume',decisionId:other?.id||null});
+      return saved;
+    });
+  }
   resolve({decisionId,answer,writingReviews={}}) {
     const decision=this.store.get('decision',decisionId);if(!decision)throw fail('Decision not found',404);
     if(decision.state==='resolved')return decision;
@@ -166,8 +196,9 @@ export class Engine {
         if(answer!=='continue_manually')throw fail('Employer automation or assessment restrictions require manual completion.',400);updated.state='manual';updated.nextAction='Continue manually under the employer’s rules and retain the matching receipt';
       } else if(decision.code==='package_review') {
         if(answer!=='approve')throw fail('Review and approve the exact resume package before continuing',400);
-        if(decision.details?.packageId!==job.packageId)throw fail('This resume review refers to an older package. Review the current package instead.');
-        const pkg=this.store.get('package',job.packageId);if(decision.details?.hash&&decision.details.hash!==pkg?.hash)throw fail('The reviewed resume version changed. Review the current package instead.');if(!pkg?.verified)throw fail('No verified package is available');this.store.put('package',{...pkg,approved:true,approvedAt:now()});
+        this.reviewPackage({packageId:job.packageId,approved:true,decisionId:decision.id});
+        this.store.event(job.id,'decision_resolved',{decisionId:decision.id,code:decision.code});
+        return this.store.get('decision',decision.id);
       } else if(['account_access','security_challenge','unsupported_portal','custom_form_controls','application_limit_review','application_limit_reached'].includes(decision.code)) {
         if(answer!=='continue_manually')throw fail('This portal step requires manual completion');
         updated.state='manual';updated.nextAction='Continue manually and retain a matching employer receipt';
@@ -183,7 +214,7 @@ export class Engine {
     if(!evidence?.url||!evidence?.reference||!evidence?.employer||!evidence?.title||!evidence?.email)throw fail('Include the receipt URL, reference, employer, role and application email',400);
     const u=new URL(evidence.url);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)throw fail('Receipt URL is invalid',400);
     if(evidence.employer!==job.employer||evidence.title!==job.title||String(evidence.email).toLowerCase()!==String(profile.email).toLowerCase())throw fail('The receipt does not match this employer, role and candidate',400);
-    const recorded={...evidence,id:randomUUID(),type:'candidate_attested_receipt',observedAt:now(),jobId:job.id,identity:job.identity,fixture:this.demo,documentsVerified:false};
+    const recorded={...evidence,id:randomUUID(),type:'candidate_attested_receipt',outcome,candidateId:profile.id||'main',observedAt:now(),jobId:job.id,identity:job.identity,fixture:this.demo,documentsVerified:false};
     // Candidate-attested evidence is visible as such; it is never an automatically confirmed submission.
     const saved=this.store.put('job',{...job,state:outcome,nextAction:outcome==='submitted'?'Await employer response':'Review the employer response',evidence:[...(job.evidence||[]),recorded],submissionConfirmation:job.submissionConfirmation||'candidate_attested',revision:(job.revision||0)+1});
     for(const decision of this.store.list('decision'))if((decision.jobId===job.id||decision.jobIds?.includes(job.id))&&decision.state==='open'){const remaining=[...new Set([decision.jobId,...(decision.jobIds||[])])].filter(id=>id!==job.id);if(decision.details?.accountId&&remaining.length)this.store.put('decision',{...decision,jobId:remaining[0],jobIds:remaining});else this.store.put('decision',{...decision,state:'resolved',answer:'Receipt recorded',resolvedAt:now()});}
@@ -233,6 +264,8 @@ export class Engine {
   async apply(job,campaign) {
     const profile=this.store.get('profile','main'),pkg=this.store.get('package',job.packageId||'');
     try {
+      const prior=recordedApplicationOutcome(this.store,this.job(job.id),profile);
+      if(prior){if(!prior.outcome)throw new ApplicationHold('prior_application_uncertain','A matching earlier employer record exists. Reconcile it before another submission.');const current=this.job(job.id);this.store.put('job',{...current,state:prior.outcome,revision:(current.revision||0)+1,preparationRequested:false,nextAction:prior.outcome==='submitted'?'Await employer response':'Review the employer response'});this.store.event(job.id,'prior_outcome_retained',{outcome:prior.outcome,evidenceId:prior.evidence.id});return {alreadyApplied:true,state:prior.outcome};}
       this.validateProfile(profile);this.validateRules(campaign.rules,{requireUnlocked:false});this.fence(job,campaign,true);
       const blocker=this.store.list('decision').find(d=>(d.jobId===job.id||d.jobIds?.includes(job.id))&&d.state==='open');
       if(blocker){this.store.put('job',{...this.job(job.id),state:'needs_you',decisionId:blocker.id,nextAction:blocker.message||blocker.question||blocker.title||'Resolve the saved decision before submitting'});return {waiting:true};}
@@ -269,8 +302,12 @@ export class Engine {
     } catch(error) {return this.handleError(job,error,'application',profile);}
   }
   handleError(job,error,phase,profile=this.store.get('profile','main')) {
-    let current=this.job(job.id);if(retainedOutcome(current,job,profile))return {reconciled:true,state:current.state};if(error.details?.report&&['application_limit_review','application_limit_reached','employer_limit'].includes(error.code)&&current.revision===job.revision)current=this.store.put('job',{...current,applicationLimitReport:error.details.report});if(error.code==='resume_file_requirements'&&error.details?.document&&current.revision===job.revision){const document=error.details.document,documents=(current.posting?.documents||[]).filter(d=>!(d.label===document.label&&d.name===document.name&&d.sourceUrl===document.sourceUrl));current=this.store.put('job',{...current,posting:{...current.posting,documents:[...documents,document]}});}const attempt=current.activeAttemptId&&this.store.get('run',current.activeAttemptId);
+    let current=this.job(job.id);if(retainedOutcome(current,job,profile))return {reconciled:true,state:current.state};const attempt=current.activeAttemptId&&this.store.get('run',current.activeAttemptId);
     if(attempt?.dispatchedAt) {this.store.put('run',{...attempt,state:'uncertain',finishedAt:now()});return this.hold(current,'uncertain_submission','Submission dispatch was recorded, but its outcome is uncertain. Investigate before retrying.');}
+    // All late failures, including ordinary browser timeouts, lose write ownership.
+    // Preserve genuine dispatched uncertainty above, then fence every error side effect.
+    if(current.revision!==job.revision||['manual','cancelled'].includes(current.state))return {revoked:true};
+    if(error.details?.report&&['application_limit_review','application_limit_reached','employer_limit'].includes(error.code))current=this.store.put('job',{...current,applicationLimitReport:error.details.report});if(error.code==='resume_file_requirements'&&error.details?.document){const document=error.details.document,documents=(current.posting?.documents||[]).filter(d=>!(d.label===document.label&&d.name===document.name&&d.sourceUrl===document.sourceUrl));current=this.store.put('job',{...current,posting:{...current.posting,documents:[...documents,document]}});}
     if(error.code==='action_revoked'||this.stopping) {
       if(current.revision!==job.revision||['manual','cancelled'].includes(current.state))return {revoked:true};
       this.store.put('job',{...current,state:current.packageId?'ready':'imported',nextAction:'Action stopped before submission dispatch',preparationRequested:false});return {revoked:true};

@@ -7,6 +7,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
 import {readNodeLicense} from './node-license.mjs';
+import {resolveDesktopConfiguration} from './native-host.mjs';
 const exec=promisify(execFile),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const sha=data=>createHash('sha256').update(data).digest('hex');
 const run=async(command,args,options={})=>(await exec(command,args,{cwd:root,maxBuffer:4*1024*1024,...options})).stdout.trim();
@@ -29,11 +30,22 @@ export async function replaceManagedApp(staged,target,{backupDirectory}={}){
  }
  await rename(staged,target);return {replaced:false};
 }
+export async function captureNativeConfiguration({environment=process.env,find,getRenderer=async()=>null}={}){
+ const explicit=resolveDesktopConfiguration({environment});
+ const codex=explicit.HUB_CODEX_BIN??await find('codex');
+ const soffice=explicit.HUB_SOFFICE_BIN??await getRenderer()??await find('soffice');
+ const browsers=explicit.PLAYWRIGHT_BROWSERS_PATH??path.join(os.homedir(),'Library','Application Support','Automation Hub','runtime','browsers');
+ const selected=resolveDesktopConfiguration({environment:{},config:{codex,soffice,browsers}});
+ return {version:2,codex:selected.HUB_CODEX_BIN||null,soffice:selected.HUB_SOFFICE_BIN||null,browsers:selected.PLAYWRIGHT_BROWSERS_PATH,executableDirectories:[...new Set([path.dirname(process.execPath),...[selected.HUB_CODEX_BIN,selected.HUB_SOFFICE_BIN].filter(Boolean).map(name=>path.dirname(name))])]};
+}
 async function main(){
  if(process.platform!=='darwin')throw new Error('Build the Mac app on macOS with Xcode command-line tools.');
  const args=process.argv.slice(2),index=args.indexOf('--output'),target=index<0?path.join(os.homedir(),'Applications','Automation Hub.app'):path.resolve(args[index+1]);
  if(!target.endsWith('.app'))throw new Error('Choose an .app output path.');
  const nodeLicense=await readNodeLicense({override:process.env.HUB_NODE_LICENSE});
+ const find=async name=>{try{return await run('/usr/bin/which',[name]);}catch{return null;}};
+ const getRenderer=async()=>{try{const renderer=JSON.parse(await readFile(path.join(os.homedir(),'Library','Application Support','Automation Hub','runtime','libreoffice','renderer.json'),'utf8'));if(!path.isAbsolute(renderer.destination)||renderer.entryPoint!==path.join(renderer.destination,'Contents','MacOS','soffice'))throw new Error('Invalid private renderer record.');await run('/usr/bin/codesign',['--verify','--strict',renderer.destination]);return renderer.entryPoint;}catch(error){if(error.code!=='ENOENT')throw error;return null;}};
+ const config=await captureNativeConfiguration({find,getRenderer}),{codex,soffice}=config;
  const cache=path.join(os.homedir(),'Library','Caches','Automation Hub');await mkdir(cache,{recursive:true,mode:0o700});
  const build=await mkdtemp(path.join(cache,'native-build-')),app=path.join(build,'Automation Hub.app'),contents=path.join(app,'Contents'),resources=path.join(contents,'Resources'),hub=path.join(resources,'hub');
  await mkdir(path.join(contents,'MacOS'),{recursive:true});await mkdir(path.join(resources,'runtime','bin'),{recursive:true});await mkdir(hub);
@@ -51,13 +63,9 @@ async function main(){
  await cp(process.execPath,path.join(resources,'runtime','bin','node'));await chmod(path.join(resources,'runtime','bin','node'),0o755);
  await writeFile(path.join(resources,'runtime','NODE-LICENSE.txt'),nodeLicense);
  for(const entry of ['server','dist','package.json','package-lock.json'])await cp(path.join(root,entry),path.join(hub,entry),{recursive:true});
- await mkdir(path.join(hub,'scripts'));for(const entry of ['native-host.mjs','native-server.mjs'])await cp(path.join(root,'scripts',entry),path.join(hub,'scripts',entry));
+ await mkdir(path.join(hub,'scripts'));for(const entry of ['native-host.mjs','native-server.mjs','service-control.mjs'])await cp(path.join(root,'scripts',entry),path.join(hub,'scripts',entry));
  const deps=(await run('npm',['ls','--omit=dev','--all','--parseable'])).split('\n').filter(name=>name.startsWith(path.join(root,'node_modules')+path.sep));
  for(const dependency of [...new Set(deps)]){const dest=path.join(hub,path.relative(root,dependency));await mkdir(path.dirname(dest),{recursive:true});await cp(dependency,dest,{recursive:true});}
- const find=async name=>{try{return await run('/usr/bin/which',[name]);}catch{return null;}};
- const codex=await find('codex');let soffice=await find('soffice');
- try{const renderer=JSON.parse(await readFile(path.join(os.homedir(),'Library','Application Support','Automation Hub','runtime','libreoffice','renderer.json'),'utf8'));if(!path.isAbsolute(renderer.destination)||renderer.entryPoint!==path.join(renderer.destination,'Contents','MacOS','soffice'))throw new Error('Invalid private renderer record.');await run('/usr/bin/codesign',['--verify','--strict',renderer.destination]);soffice=renderer.entryPoint;}catch(error){if(error.code!=='ENOENT')throw error;}
- const config={version:1,codex,soffice,executableDirectories:[path.dirname(process.execPath),...[codex,soffice].filter(Boolean).map(name=>path.dirname(name))]};
  await writeFile(path.join(hub,'native-config.json'),JSON.stringify(config,null,2)+'\n');
  await run(path.join(resources,'runtime','bin','node'),['--input-type=module','-e','await import("./server/index.mjs"); console.log("Production module import passed")'],{cwd:hub,env:{HOME:os.homedir(),PATH:'/usr/bin:/bin'}});
  await run('/usr/bin/plutil',['-lint',path.join(contents,'Info.plist')]);
@@ -66,7 +74,7 @@ async function main(){
  const files={};async function walk(directory){for(const item of await readdir(directory,{withFileTypes:true})){const file=path.join(directory,item.name);if(item.isDirectory())await walk(file);else if(item.isFile())files[path.relative(app,file)]=sha(await readFile(file));else if(item.isSymbolicLink())throw new Error('Unexpected symlink in native app: '+file);}}await walk(app);
  await mkdir(path.dirname(target),{recursive:true});
  const replacement=await replaceManagedApp(app,target,{backupDirectory:path.join(os.homedir(),'Library','Application Support','Automation Hub','app-versions')});
- const receipt={observedAt:new Date().toISOString(),application:target,bundleIdentifier:'local.nazeeh.automationhub',nodeVersion:process.version,nodeSha256:files['Contents/Resources/runtime/bin/node'],architecture:process.arch,adHocSigned:true,notarized:false,productionDependencies:deps.map(name=>path.relative(root,name)),externalCapabilities:{codex,soffice,browsers:'Existing private version-matched Playwright cache'},replacement,files};
+ const receipt={observedAt:new Date().toISOString(),application:target,bundleIdentifier:'local.nazeeh.automationhub',nodeVersion:process.version,nodeSha256:files['Contents/Resources/runtime/bin/node'],architecture:process.arch,adHocSigned:true,notarized:false,productionDependencies:deps.map(name=>path.relative(root,name)),externalCapabilities:{codex,soffice,browsers:config.browsers},replacement,files};
  await mkdir(path.join(root,'docs','native-app'),{recursive:true});await writeFile(path.join(root,'docs','native-app','BUILD_RECEIPT.json'),JSON.stringify(receipt,null,2)+'\n');
  // Only our uniquely created build staging remains here; preserve installed/old apps.
  await rm(build,{recursive:true,force:true});

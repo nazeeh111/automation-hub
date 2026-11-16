@@ -2,13 +2,13 @@
 
 A local dashboard for personal automations, centered on finding and managing US internship applications, with an optional read-only view of existing n8n workflows.
 
-The internship workspace keeps employer-feed discovery, selected jobs, original resumes, scoped questions, reviewed documents and application evidence together. Home combines the automation map, selected work, observed US internship totals and the next saved action. n8n remains responsible for its own execution and schedules.
+The internship workspace keeps employer-feed discovery, selected jobs, original resumes, scoped questions, reviewed documents and application evidence together. Home puts each automation’s state, next useful action and compact visual workflow together. n8n remains responsible for its own execution and schedules.
 
 This is an early macOS-first project. It is intended for one person on their own computer. Supported employer adapters currently cover Greenhouse and Lever, with local fixtures for their supported paths. Employer customizations and other portals need separate validation. A prepared document or a synthetic receipt does not establish a real submission or a hiring outcome.
 
 ![Home workbench with isolated synthetic data.](docs/images/home.png)
 
-Home workbench with isolated synthetic data.
+Home workbench with isolated synthetic data. [Phone layout](docs/images/home-mobile.png).
 
 ## Run from source
 
@@ -29,9 +29,9 @@ Private data defaults to `~/Library/Application Support/Automation Hub`, outside
 
 ## Use the workspace
 
-Home's map groups registered workspaces, while the application progress view follows selected roles through requirements, documents, dispatch and receipts. Its US internship total comes from the same retained-record query as Discover's US preset. The next-action panel opens the actual saved question, application queue or employer browser appropriate to the current workspace.
+Home starts with Internship applications, its campaign state and Browse US internships. It guides selected work through résumé import, essential profile details and campaign rules. Exact question links open Needs You; the application workspace retains posting, document and outcome evidence. Linked n8n workflows show only observed stages and status.
 
-1. Explore the separate fixture workspace in Settings before entering real data.
+1. Explore the separate fixture workspace in Internships → Settings before entering real data.
 2. Import finished resumes and selected HTTPS job links. An optional mega resume supplies supporting evidence and cannot be the uploaded base.
 3. Confirm candidate facts and allowed sites, then review documents and any missing answers.
 4. Configure optional connections explicitly. The application starts without a real campaign enabled.
@@ -56,6 +56,8 @@ Posted dates appear only when supplied by the employer. **Found** records the fi
 | Saved | A local shortlist bookmark |
 | In application queue | A role explicitly selected for preparation under campaign rules |
 | Confirmed | An application with matching employer evidence in the application ledger |
+
+Home starts with **Internship applications**, its campaign state and **Browse US internships**. After selecting roles, it guides you through finished résumés, essential profile details and campaign rules. Needs You opens the exact employer question. A résumé review shows the retained version and changes; missing or stale evidence offers recovery instead of an unusable approval. Connections and workflow linking live inside Automations.
 
 Adding a fresh role to the queue does not itself submit an application. Dispatch follows the enabled campaign rules and required document/question review.
 
@@ -91,6 +93,14 @@ The app is locally ad-hoc signed, not notarized. It bundles Node and production 
 Closing or quitting the native window leaves its user-started background worker running. Pause or stop campaigns in the workspace when needed. It does not install a login item or system daemon. Build receipts and generated machine paths are local outputs and must not be committed.
 
 The native opening panel waits for both the current primary navigation and the current React workspace commit. If that display does not become ready or its process stops, the app shows recovery with **Reconnect** and **Open in Browser**. Reconnect is explicit and reopens saved progress; the display timeout does not reload the page or replay application actions automatically. These display signals do not certify backend connections or application success.
+
+## Pause, quit and shut down
+
+Campaign **Pause/Stop** changes application work. Native **Quit** closes the window and leaves its worker running. For maintenance, choose **Automation Hub → Shut Down Background Worker…** and confirm. The app reports verified shutdown only after the identified process exits and its private control entries are gone. Reconnect is explicit; stopping the display never replays a submission.
+
+Source users can run `npm run service:stop` with the same absolute `HUB_DATA_DIR`. This command never starts a worker, signals a process or removes unknown control files. A refusal or timeout is not proof that restoration is safe. See [complete recovery instructions](docs/OPERATIONS.md).
+
+Explicit `HUB_CODEX_BIN`, `HUB_SOFFICE_BIN` and `PLAYWRIGHT_BROWSERS_PATH` values take precedence over captured configuration. Native builds retain these local paths for launches without a shell environment. Invalid explicit settings do not silently select another tool. Optional tools are checked when used; browsing does not require every connection.
 
 ## Project map
 

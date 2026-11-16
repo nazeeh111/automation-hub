@@ -1,6 +1,68 @@
 import AppKit
 import WebKit
 
+// Maintenance stays explicit until the user opens a new workspace. Late display
+// callbacks must not turn a verified stop into generic connection advice.
+struct WorkerMaintenance {
+    enum Phase { case normal, stopping, stopped, unverified }
+    private(set) var phase: Phase = .normal
+    private(set) var message: String?
+    func canBegin(opening: Bool, savingDownloads: Int) -> Bool { !opening && savingDownloads == 0 && (phase == .normal || phase == .unverified) }
+    mutating func begin(opening: Bool, savingDownloads: Int) -> Bool {
+        guard canBegin(opening: opening, savingDownloads: savingDownloads) else { return false }
+        phase = .stopping
+        message = "Waiting for the identified background worker to stop. Keep current files in place…"
+        return true
+    }
+    mutating func complete(stopped: Bool, verified: Bool) {
+        guard phase == .stopping else { return }
+        guard stopped && verified else { fail("Shutdown completion was not verified. Keep current files in place and inspect the identified worker before restoring."); return }
+        phase = .stopped
+        message = "Background worker stopped and its private control entries were removed. Preserve the current runtime bytes before restoring a complete backup. Reconnect explicitly starts a fresh worker; review paused work before resuming."
+    }
+    mutating func fail(_ advice: String) {
+        guard phase == .stopping else { return }
+        phase = .unverified; message = advice
+    }
+    mutating func reopen() { phase = .normal; message = nil }
+}
+
+struct NativeStartupFailure {
+    // The helper emits only these codes. Unknown stderr, including uppercase
+    // strings, is never copied into a native message.
+    static let advice = [
+        "HUB_PORT_IN_USE": "The requested local port is in use. Stop the identified hub or choose an unused HUB_PORT explicitly.",
+        "HUB_DATA_DIRECTORY": "Set HUB_DATA_DIR to an absolute private directory.",
+        "HUB_PORT_INVALID": "Set HUB_PORT to a whole number from 0 to 65535.",
+        "HUB_CAPABILITY_PATH": "Correct the explicit absolute tool or browser path before retrying.",
+        "NATIVE_CONFIGURATION": "The captured native configuration is invalid. Correct its local settings and rebuild.",
+        "NATIVE_BACKEND_START": "The worker exited before opening. Check the installation and rebuild if necessary.",
+        "NATIVE_BACKEND_TIMEOUT": "The worker did not become ready in time. Check the identified process before reconnecting.",
+        "LOCAL_SHUTDOWN_TIMEOUT": "Shutdown is not yet verified. Keep current files in place and wait for the identified worker to finish.",
+        "LOCAL_SHUTDOWN_NOT_RUNNING": "No running worker was identified. Shutdown was not verified; inspect the current process before restoring files.",
+        "LOCAL_SHUTDOWN_CHANGED": "Worker ownership changed and the replacement was left untouched. Do not restore until the current worker is identified and stopped.",
+        "LOCAL_LAUNCH_MODE": "Private launch permissions are unsafe. Inspect the owned directory and documented private modes.",
+        "LOCAL_LAUNCH_OWNER": "Private launch ownership was rejected. Preserve the entries and inspect their owner before repair.",
+        "LOCAL_LAUNCH_PATH": "The private control path is invalid or too long. Inspect the explicit data directory before retrying.",
+        "LOCAL_LAUNCH_BUSY": "The identified control owner is still running. Stop that worker before recovery.",
+        "LOCAL_LAUNCH_LEASE": "The worker lease is required before stale control recovery.",
+        "LOCAL_LAUNCH_DENIED": "Process ownership could not be verified. Inspect the native permission boundary.",
+        "LOCAL_LAUNCH_PROTOCOL": "The identified worker refused the private request. Check its version and ownership before retrying.",
+        "LOCAL_LAUNCH_TIMEOUT": "The identified worker did not answer. Check its process before retrying.",
+        "LOCAL_LAUNCH_REFUSED": "The private request was refused. Check the existing process and private launch permissions.",
+        "NATIVE_OPEN_FAILED": "The system browser could not open the private workspace. Check the native browser-opening permission.",
+        "EACCES": "Native access was denied. Correct the specific operating-system permission before retrying.",
+        "EPERM": "Native access was denied. Correct the specific operating-system permission before retrying.",
+        "UNSUPPORTED_PLATFORM": "Private local launch requires the supported macOS Unix user boundary.",
+        "NATIVE_OPERATION": "The requested native operation is unsupported."
+    ]
+    static func message(_ errors: Data) -> String {
+        let code = errors.count <= 128 ? String(data: errors, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" : ""
+        let known = advice[code]
+        return "The private request could not finish\(known == nil ? "" : " (\(code))"). \(known ?? "Check the identified process and its private launch permissions before reconnecting.") No alternate access route was attempted."
+    }
+}
+
 // Native chrome around the existing private, UI-independent automation worker.
 final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKDownloadDelegate {
     private var window: NSWindow!
@@ -19,6 +81,7 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
     private var display = DisplayReadiness()
     private var renderTimer: DispatchWorkItem?
     private var workspaceNavigation: WKNavigation?
+    private var maintenance = WorkerMaintenance()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -59,6 +122,7 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
         app.addItem(.separator())
         app.addItem(withTitle: "Open in Browser", action: #selector(openBrowser), keyEquivalent: "b")
         app.addItem(withTitle: "Reconnect Workspace", action: #selector(reconnect), keyEquivalent: "r")
+        app.addItem(withTitle: "Shut Down Background Worker…", action: #selector(shutdownWorker), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Automation Hub", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(.separator()); app.addItem(withTitle: "Quit Automation Hub", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -72,7 +136,7 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
         windows.addItem(withTitle: "Open Workspace", action: #selector(showWindow), keyEquivalent: "1")
         windows.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windows.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        for item in [app, view, windows].flatMap({ $0.items }) where [#selector(about), #selector(reconnect), #selector(openBrowser), #selector(showWindow), #selector(resetZoom), #selector(zoomIn), #selector(zoomOut)].contains(item.action) { item.target = self }
+        for item in [app, view, windows].flatMap({ $0.items }) where [#selector(about), #selector(shutdownWorker), #selector(reconnect), #selector(openBrowser), #selector(showWindow), #selector(resetZoom), #selector(zoomIn), #selector(zoomOut)].contains(item.action) { item.target = self }
     }
 
     @objc private func about() {
@@ -94,9 +158,35 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
     @objc private func resetZoom() { web.pageZoom = 1 }
     @objc private func zoomIn() { web.pageZoom = min(1.6, web.pageZoom + 0.1) }
     @objc private func zoomOut() { web.pageZoom = max(0.8, web.pageZoom - 0.1) }
-    @objc private func openBrowser() { runHelper("browser") { _ in } }
+    @objc private func openBrowser() {
+        guard !opening else { return }
+        maintenance.reopen()
+        status.stringValue = "Opening the private workspace in your browser…"
+        runHelper("browser") { _ in }
+    }
+    @objc private func shutdownWorker() {
+        guard !opening else { return }
+        if maintenance.phase == .stopped { failure(""); return }
+        guard savingDownloads == 0 else { alert("Wait for active file saves to finish before shutting down the background worker."); return }
+        let prompt = NSAlert(); prompt.messageText = "Shut down the background worker?"
+        prompt.informativeText = "This closes the owned worker after current work drains. An already dispatched external action may finish; shutdown does not undo it. Quit and Stop campaign have different effects. Wait for verified shutdown before preserving current bytes and restoring a complete backup."
+        prompt.addButton(withTitle: "Keep Running"); prompt.addButton(withTitle: "Shut Down Worker")
+        guard prompt.runModal() == .alertSecondButtonReturn else { return }
+        // A modal can run the event loop. Recheck saves and acquisition before
+        // starting maintenance rather than bypassing the existing save guards.
+        guard maintenance.begin(opening: opening, savingDownloads: savingDownloads) else { alert("Wait for opening and active file saves to finish before shutdown."); return }
+        web.stopLoading(); workspaceNavigation = nil; renderTimer?.cancel()
+        failure("Waiting for the identified background worker to stop. Keep current files in place…")
+        runHelper("shutdown") { [weak self] result in
+            guard let self = self else { return }
+            self.maintenance.complete(stopped: result?["stopped"] as? Bool == true, verified: result?["verified"] as? Bool == true)
+            if self.maintenance.phase == .stopped { self.origin = nil }
+            self.failure("")
+        }
+    }
     @objc private func reconnect() {
         guard !opening else { return }
+        maintenance.reopen()
         let generation = UUID().uuidString
         display.begin(generation: generation); renderTimer?.cancel(); workspaceNavigation = nil
         web.stopLoading()
@@ -134,15 +224,15 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
         let task = Process(); task.executableURL = resources.appendingPathComponent("runtime/bin/node"); task.arguments = [resources.appendingPathComponent("hub/scripts/native-host.mjs").path, mode]; task.currentDirectoryURL = resources.appendingPathComponent("hub")
         let out = Pipe(), err = Pipe(); task.standardOutput = out; task.standardError = err; task.standardInput = FileHandle.nullDevice
         helper = task
-        let timeout = DispatchWorkItem { [weak self, weak task] in if task?.isRunning == true { task?.terminate(); self?.failure("Opening timed out. Reconnect after checking the existing hub process.") } }; helperTimer = timeout
+        let timeout = DispatchWorkItem { [weak self, weak task] in if task?.isRunning == true { task?.terminate(); let message = mode == "shutdown" ? "Shutdown is not yet verified. Keep current files in place and inspect the identified worker before restoring." : "Opening timed out. Reconnect after checking the existing hub process."; self?.maintenance.fail(message); self?.failure(message) } }; helperTimer = timeout
         task.terminationHandler = { [weak self] finished in
             let bytes = out.fileHandleForReading.readDataToEndOfFile(), errors = err.fileHandleForReading.readDataToEndOfFile()
             DispatchQueue.main.async {
                 guard let self = self else { return }; self.helperTimer?.cancel(); self.opening = false; self.helper = nil
                 guard finished.terminationStatus == 0, bytes.count <= 8192, let value = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
-                    let code = String(data: errors.prefix(128), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    let safe = code.range(of: "^[A-Z0-9_]{1,60}$", options: .regularExpression) != nil ? " (\(code))" : ""
-                    self.failure("The private workspace could not open\(safe). Reconnect after checking its process and launch permissions. No alternate access route was attempted."); completion(nil); return
+                    let message = NativeStartupFailure.message(errors)
+                    if mode == "shutdown" { self.maintenance.fail(message) }
+                    self.failure(message); completion(nil); return
                 }
                 completion(value)
             }
@@ -150,12 +240,12 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
         do { try task.run(); DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: timeout) }
         catch { opening = false; helper = nil; failure("The bundled runtime could not start. Rebuild or restore this app; your saved work remains in Application Support."); completion(nil) }
     }
-    private func failure(_ message: String) { if let generation = display.generation { _ = display.fail(generation: generation, primaryWebView: true) }; renderTimer?.cancel(); loadingPanel.isHidden = false; status.stringValue = message }
+    private func failure(_ message: String) { if let generation = display.generation { _ = display.fail(generation: generation, primaryWebView: true) }; renderTimer?.cancel(); loadingPanel.isHidden = false; status.stringValue = maintenance.message ?? message }
     private func alert(_ message: String) { let alert = NSAlert(); alert.messageText = "Automation Hub"; alert.informativeText = message; alert.beginSheetModal(for: window) }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard trusted(message.frameInfo), let body = message.body as? [String: String] else { return }
-        if body.count == 1, body["action"] == "openBrowserConnections" { runHelper("browser-connections") { _ in }; return }
+        if body.count == 1, body["action"] == "openBrowserConnections" { guard maintenance.phase == .normal else { return }; runHelper("browser-connections") { _ in }; return }
         guard body.count == 2, body["action"] == "workspaceReady", let generation = body["generation"] else { return }
         let source = DisplayMessageSource(primaryWebView: message.webView === web, mainFrame: message.frameInfo.isMainFrame, matchingOrigin: local(message.frameInfo.request.url) && local(web.url), rootDocument: message.frameInfo.request.url?.path == "/" && web.url?.path == "/")
         guard display.acknowledge(generation: generation, source: source) else { return }
@@ -255,6 +345,7 @@ final class HubApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) { if let item = downloadTargets.removeValue(forKey: ObjectIdentifier(download)) { try? FileManager.default.removeItem(at: item.temporary.deletingLastPathComponent()) }; if (error as NSError).code != NSURLErrorCancelled { alert("The download did not finish. No partial file was saved at the selected destination.") } }
 }
 
+#if !HUB_NATIVE_CHECKS
 @main
 struct AutomationHubMain {
     static func main() {
@@ -264,3 +355,4 @@ struct AutomationHubMain {
         withExtendedLifetime(delegate) { app.run() }
     }
 }
+#endif

@@ -118,7 +118,70 @@ export function isAuthenticationMessage(message){const subject=normalize(message
 function jobRequisition(job){if(job.requisition||job.posting?.requisition)return String(job.requisition||job.posting.requisition);try{const u=new URL(job.url),parts=u.pathname.split('/').filter(Boolean);if(['jobs.lever.co','jobs.eu.lever.co'].includes(u.hostname))return parts[1]||null;if(['boards.greenhouse.io','job-boards.greenhouse.io','job-boards.eu.greenhouse.io'].includes(u.hostname))return u.searchParams.get('gh_jid')||parts.findLast(p=>/^\d+$/.test(p))||null;}catch{}return null;}
 function tokenContains(haystack,needle){const text=normalize(haystack).toLowerCase(),value=normalize(needle).toLowerCase();let start=text.indexOf(value);while(start>=0){const before=text[start-1]||'',after=text[start+value.length]||'';if(!/[a-z0-9]/.test(before)&&!/[a-z0-9]/.test(after))return true;start=text.indexOf(value,start+1);}return false;}
 function matchingRoleLink(job,raw,requisition){try{const target=new URL(raw),source=new URL(job.url);if(target.protocol!=='https:'||target.username||target.password||target.port&&target.port!=='443')return false;const host=h=>h==='boards.greenhouse.io'?'job-boards.greenhouse.io':h;if(host(target.hostname)!==host(source.hostname))return false;const tenant=u=>tenantKey(u.toString()).replace(/^boards\.greenhouse\.io/,'job-boards.greenhouse.io');return tenant(target)===tenant(source)&&tokenContains(target.pathname+' '+target.search,requisition);}catch{return false;}}
-const outcomePatterns=[['offer',/pleased to (?:offer|extend)|offer (?:you|of employment)|employment offer/i],['interview',/invite you to (?:an? )?(?:interview|conversation)|schedule (?:an? |your )?interview|interview invitation/i],['assessment',/complete (?:the |an? |our )?(?:assessment|coding challenge|technical test)|assessment invitation/i],['rejected',/we (?:have )?(?:decided|chosen).{0,65}(?:not to (?:move|proceed)|another candidate)|(?:will not|won't|unable to|not be able to).{0,40}(?:move forward|proceed)|application.{0,40}(?:unsuccessful|not selected)|regret to inform/i],['submitted',/we (?:have )?received your application|your application (?:has been )?(?:received|submitted)|thank you for applying/i]];
+const outcomePatterns=[['offer',/\boffer(?:s|ed|ing)?\b/i],['interview',/invite you to (?:an? )?(?:interview|conversation)|schedule (?:an? |your )?interview|interview invitation/i],['assessment',/complete (?:the |an? |our )?(?:assessment|coding challenge|technical test)|assessment invitation/i],['rejected',/we (?:have )?(?:decided|chosen).{0,65}(?:not to (?:move|proceed)|another candidate)|(?:will not|won't|unable to|not be able to).{0,40}(?:move forward|proceed)|application.{0,40}(?:unsuccessful|not selected)|regret to inform|\b(?:unable to|cannot|can't|will not|won't|not able to)\s+(?:extend\s+)?(?:an?\s+)?offer\b/i],['submitted',/we (?:have )?received your application|your application (?:has been )?(?:received|submitted)|thank you for applying/i]];
+const affirmativeOffer=/\b(?:pleased|delighted|excited|happy)\s+to\s+(?:offer|extend)\b|\bwe\s+(?:are\s+)?offering\s+you\b|\bwe\s+(?:would like|want)\s+to\s+offer\s+you\b|\bwe\s+offer\s+you\b/i;
+const uncertainOffer=/\b(?:if|unless|whether|may|might|could|should|conditional|contingent|subject to|pending|potential|possible|hope|intend|consider)\b|\bwould\b(?!\s+like\s+to\s+offer)|\b(?:not|never|cannot|can't|unable|won't|without|declin\w*|withdraw\w*|rescind\w*)\b/i;
+// These are deliberately bounded English assertion checks, not a language model.
+// Inspect outcome-bearing passages and adjacent referential status assertions;
+// an unrelated conditional elsewhere in the message is not an outcome qualifier.
+const conditionalOutcome=/\b(?:if|unless|once|until|when|after|before|provided|assuming|may|might|could|should|conditional|contingent|subject to|pending|potential|possible|hope|intend|consider)\b|\bwould\b(?!\s+like\s+to\s+(?:offer|invite))|\bwill\s+(?:(?:need|have)\s+to\s+)?(?:invite|schedule|complete)\b/i;
+const negativeOutcome=/\b(?:not|never|cannot|can't|unable|won't|cancel\w*|withdraw\w*|rescind\w*)\b/i;
+const materialQualification=/\b(?:conditional|contingent|subject to|pending|withdraw\w*|rescind\w*|cancel\w*)\b|\bnot\s+(?:valid|confirmed|approved|available)\b/i;
+const outcomeReferences={offer:'offer|position',interview:'interview|invitation',assessment:'assessment|coding challenge|technical test|invitation',submitted:'application|submission|receipt|confirmation'};
+function withoutContactFooter(text){
+ const start=text.search(/\bif you have (?:any )?questions\b/i);if(start<0)return text;
+ const footer=text.slice(start);
+ return /^if you have (?:any )?questions(?: about [^,;.!?]*)?[,;]?\s*(?:please\s+)?(?:contact|email|reach out|let us know)\b[^.!?]*[.!?]?\s*$/i.test(footer)&&!materialQualification.test(footer)?text.slice(0,start):text;
+}
+function adjacentQualification(passages,index,outcome){
+ const names=outcomeReferences[outcome];
+ const named=new RegExp(`^(?:(?:unfortunately|however|please note|note that)[,:]?\\s*)?(?:this|that|the|your|our)\\s+(?:${names})\\b`,'i');
+ const referential=/^(?:(?:unfortunately|however|please note|note that)[,:]?\s*)?(?:this|that|it)\s+(?:is|was|has|had|will|may|might|could|can|remains|would|depends)\b/i;
+ // One preceding named assertion, or the next two referential assertions,
+ // includes adjacent paragraphs without treating every later "may" as doubt.
+ return [index-1,index+1,index+2].some(i=>{
+  const text=passages[i]||'';
+  if(!materialQualification.test(text))return false;
+  if(i<index)return named.test(text);
+  // Do not carry a pronoun across an intervening assertion of another outcome.
+  if(i===index+2&&outcomePatterns.some(([,pattern])=>pattern.test(passages[index+1]||'')))return false;
+  return named.test(text)||referential.test(text);
+ });
+}
+export function classifyEmployerOutcome(body){
+ const passages=String(body).split(/\n+|(?<=[.!?])\s+/).map(text=>withoutContactFooter(text).trim()).filter(Boolean);
+ const matches=outcomePatterns.filter(([,pattern])=>pattern.test(body)),affirmative=passages.some(text=>affirmativeOffer.test(text));
+ const rejected=matches.some(([outcome])=>outcome==='rejected');
+ const usable=[];let conflicting=false;
+ for(const [outcome,pattern] of matches){
+  // A negative offer can be an affirmative rejection; a bare mention of an
+  // offer is not enough to record an offer, even beside a genuine receipt.
+  if(outcome==='offer'&&!affirmative){if(!rejected)conflicting=true;continue;}
+  if(outcome==='rejected'){usable.push(outcome);continue;}
+  let actual=false,conditional=false;
+  for(const [index,text] of passages.entries()){
+   if(!pattern.test(text)||outcome==='offer'&&!affirmativeOffer.test(text))continue;
+   const previous=passages[index-1]||'';
+   const prerequisite=/^(?:if|unless|once|until|when|after|before|provided|assuming)\b/i.test(previous)&&!/[.!?]$/.test(previous);
+   const qualified=adjacentQualification(passages,index,outcome);
+   if(negativeOutcome.test(text)||qualified){conflicting=true;continue;}
+   if(prerequisite||conditionalOutcome.test(text)||outcome==='offer'&&uncertainOffer.test(text)){conditional=true;continue;}
+   actual=true;
+  }
+  if(outcome==='submitted'&&/\byour application\s+(?:(?:has|had|was|is)\s+)?(?:not|never)\s+(?:been\s+)?(?:received|submitted)\b/i.test(body))conflicting=true;
+  if(actual&&conditional)conflicting=true;
+  if(actual)usable.push(outcome);
+ }
+ const distinct=usable.some(outcome=>outcome!=='submitted')?usable.filter(outcome=>outcome!=='submitted'):usable;
+ const proposedOutcome=!conflicting&&distinct.length===1?distinct[0]:null;
+ return {matches,proposedOutcome,unambiguous:Boolean(proposedOutcome)};
+}
+function outcomePeers(job,jobs){return jobs.filter(other=>other.id!==job.id&&other.identity!==job.identity&&normalize(other.employer).toLowerCase()===normalize(job.employer).toLowerCase()&&normalize(other.title).toLowerCase()===normalize(job.title).toLowerCase());}
+export function outcomeMatchContext(job,profile,jobs){
+ const peers=outcomePeers(job,jobs).map(peer=>({id:peer.id,identity:peer.identity,url:peer.url,requisition:jobRequisition(peer)})).sort((a,b)=>a.id.localeCompare(b.id));
+ return {jobIdentity:job.identity,candidateId:profile.id||'main',candidateEmail:email(profile.email),profileRevision:profile.updatedAt||null,profileHash:digest(JSON.stringify(profile)),postingHash:job.posting?.sourceHash||null,employer:job.employer,title:job.title,requisition:jobRequisition(job),peerHash:digest(JSON.stringify(peers))};
+}
+export function currentOutcomeUnique(job,jobs){const requisition=jobRequisition(job);return !outcomePeers(job,jobs).some(peer=>!requisition||jobRequisition(peer)===requisition);}
 
 export class InboxService {
  constructor({store,vault,directory,command,runner,destinationValidator=validateDestination,clock=()=>Date.now(),maxPages=2,maxMessages=30,maxJobs=20}={}){if(!store)throw err('INBOX_CONFIG','InboxService needs a durable store.',500);Object.assign(this,{store,vault,directory,command,clock,destinationValidator});this.runner=runner||createGwsRunner({command,directory});this.injectedRunner=Boolean(runner);this.maxPages=Math.max(1,Math.min(3,maxPages));this.maxMessages=Math.max(1,Math.min(50,maxMessages));this.maxJobs=Math.max(1,Math.min(20,maxJobs));this.busy=false;}
@@ -168,9 +231,10 @@ export class InboxService {
     const result=await this.messages(c,q);hasMore=hasMore||result.hasMore;checkedJobs++;
     for(const message of result.messages){if(isAuthenticationMessage(message)||!message.authenticated||!senders.includes(message.sender)||!message.recipients.includes(recipient)||message.receivedMs<start||message.receivedMs>end)continue;
      const body=message.subject+'\n'+message.text;if(!literalContains(body,job.employer))continue;const roleMatched=literalContains(body,job.title),requisition=jobRequisition(job),reqMatched=Boolean(requisition&&(tokenContains(body.replace(/https?:\/\/[^\s<>"']+/gi,' '),requisition)||message.links.some(link=>matchingRoleLink(job,link,requisition))));if(!roleMatched&&!reqMatched)continue;
-     const matches=outcomePatterns.filter(([,pattern])=>pattern.test(body));if(!matches.length)continue;const outcomes=unique(matches.map(([outcome])=>outcome)),distinct=outcomes.some(o=>o!=='submitted')?outcomes.filter(o=>o!=='submitted'):outcomes;const proposedOutcome=distinct.length===1?distinct[0]:null;const exactIdentity=roleMatched&&(!requisition||reqMatched);const peerJobs=known.filter(other=>other.id!==job.id&&other.identity!==job.identity&&normalize(other.employer).toLowerCase()===normalize(job.employer).toLowerCase()&&normalize(other.title).toLowerCase()===normalize(job.title).toLowerCase());const competing=peerJobs.some(other=>{const otherReq=jobRequisition(other);return !requisition||Boolean(otherReq&&(tokenContains(body.replace(/https?:\/\/[^\s<>"']+/gi,' '),otherReq)||message.links.some(link=>matchingRoleLink(other,link,otherReq))));});const matched=distinct.length===1&&exactIdentity&&!competing&&typeof job.identity==='string'&&Boolean(job.identity);const match=matches[0][1].exec(body),index=match?.index||0;const quoteText=redactInboxEvidence(body.slice(Math.max(0,index-100),Math.min(body.length,index+350)));
-     const id='inbox-proposal-'+digest(`${job.id}\0${message.id}`).slice(0,28);const old=this.store.get('inbox_proposal',id);if(old){if(old.confidence==='matched'&&!matched){const corrected={...old,confidence:'ambiguous',reason:'The current selected-job library no longer uniquely binds this email to one role.',recheckedAt:stamp()};this.store.put('inbox_proposal',corrected);proposals.push(corrected);}else proposals.push(old);continue;}
-     const evidence={...summaryEvidence(message,recipient),employer:job.employer,title:job.title,requisition,quote:quoteText,matches:{trustedSender:true,recipient:true,deliveryWindow:true,employer:true,role:roleMatched,requisition:requisition?reqMatched:null,uniqueJob:!competing},jobIdentity:job.identity,candidateEmail:recipient};const proposal={id,jobId:job.id,jobIdentity:job.identity,candidateEmail:recipient,messageId:message.id,proposedOutcome,evidence,confidence:matched?'matched':'ambiguous',state:'open',reason:matched?'Trusted sender, exact recipient, delivery window, employer, role and available requisition all matched observable message evidence.':'The message has an ambiguous outcome or does not match every available role/requisition identity. Review before changing the application.',createdAt:stamp()};this.guard(c);this.store.put('inbox_proposal',proposal);proposals.push(proposal);
+     const classification=classifyEmployerOutcome(body),{matches,proposedOutcome}=classification;if(!matches.length)continue;const exactIdentity=roleMatched&&(!requisition||reqMatched);const peerJobs=outcomePeers(job,known);const competing=peerJobs.some(other=>{const otherReq=jobRequisition(other);return !requisition||Boolean(otherReq&&(tokenContains(body.replace(/https?:\/\/[^\s<>"']+/gi,' '),otherReq)||message.links.some(link=>matchingRoleLink(other,link,otherReq))));});const matched=classification.unambiguous&&exactIdentity&&!competing&&typeof job.identity==='string'&&Boolean(job.identity);const match=matches[0][1].exec(body),index=match?.index||0;const quoteText=redactInboxEvidence(body.slice(Math.max(0,index-100),Math.min(body.length,index+350)));
+     const id='inbox-proposal-'+digest(`${job.id}\0${message.id}`).slice(0,28),matchContext=outcomeMatchContext(job,profile,known);const old=this.store.get('inbox_proposal',id);
+     if(old&&old.state!=='open'){if(old.confidence==='matched'&&(!matched||JSON.stringify(old.matchContext)!==JSON.stringify(matchContext))){const rechecks=[...(old.rechecks||[])];if(!rechecks.some(check=>check.contextHash===digest(JSON.stringify(matchContext))&&check.confidence===(matched?'matched':'ambiguous')))rechecks.push({observedAt:stamp(),confidence:matched?'matched':'ambiguous',contextHash:digest(JSON.stringify(matchContext)),reason:'Current inbox context was rechecked. The accepted or dismissed proposal remains historical evidence.'});const annotated={...old,rechecks};this.store.put('inbox_proposal',annotated);proposals.push(annotated);}else proposals.push(old);continue;}
+     const evidence={...summaryEvidence(message,recipient),employer:job.employer,title:job.title,requisition,quote:quoteText,matches:{trustedSender:true,recipient:true,deliveryWindow:true,employer:true,role:roleMatched,requisition:requisition?reqMatched:null,uniqueJob:!competing},jobIdentity:job.identity,candidateEmail:recipient};const proposal={id,jobId:job.id,jobIdentity:job.identity,candidateEmail:recipient,messageId:message.id,proposedOutcome,evidence,matchContext,confidence:matched?'matched':'ambiguous',state:'open',reason:matched?'Trusted sender, exact recipient, delivery window, employer, role and available requisition all matched observable message evidence.':'The message has an ambiguous outcome or does not match every available role/requisition identity. Review before changing the application.',createdAt:old?.createdAt||stamp()};this.guard(c);this.store.put('inbox_proposal',proposal);proposals.push(proposal);
     }
    }return {proposals,checkedJobs,skipped,hasMore};
   }finally{if(advanceCursor&&visited>0&&ordered.length){const next=ordered[visited%ordered.length];this.store.put('inbox_cursor',{id:'outcomes',nextJobId:next.id,lastVisitedId:ordered[visited-1].id,visited,checkedAt:stamp()});}}

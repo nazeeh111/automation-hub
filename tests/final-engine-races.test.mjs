@@ -7,6 +7,7 @@ import {randomUUID} from 'node:crypto';
 import {Store} from '../server/store.mjs';
 import {Engine} from '../server/engine.mjs';
 import {OutcomeService} from '../server/outcomes.mjs';
+import {outcomeMatchContext} from '../server/inbox.mjs';
 import {ApplicationHold,BrowserAdapter,nativeAnswerFingerprint} from '../server/adapters.mjs';
 import {createHub} from '../server/index.mjs';
 import {employerFixture} from './fixtures/employer.mjs';
@@ -25,7 +26,7 @@ async function engineFixture(t,submit) {
 function acceptReceipt(store,profile,outcome='submitted') {
  const job=store.get('job','job');
  store.put('connection',{id:'inbox',enabled:true,verified:true,autoTrack:true,email:profile.email,recipients:[profile.email]});
- const id=randomUUID();store.put('inbox_proposal',{id,jobId:job.id,jobIdentity:job.identity,candidateEmail:profile.email,state:'open',confidence:'matched',proposedOutcome:outcome,messageId:id,evidence:{source:'gmail',recipient:profile.email,employer:job.employer,title:job.title,sender:'careers@example.test',quote:'Synthetic employer message for this exact application.',messageUrl:'https://mail.google.com/mail/u/0/#all/'+id,receivedAt:new Date().toISOString(),authentication:'gmail-dmarc-header-pass',matches:{trustedSender:true,recipient:true,deliveryWindow:true,employer:true,role:true,uniqueJob:true}}});
+ const id=randomUUID();store.put('inbox_proposal',{id,jobId:job.id,jobIdentity:job.identity,candidateEmail:profile.email,state:'open',confidence:'matched',proposedOutcome:outcome,messageId:id,matchContext:outcomeMatchContext(job,profile,store.list('job')),evidence:{source:'gmail',recipient:profile.email,employer:job.employer,title:job.title,sender:'careers@example.test',quote:'Synthetic employer message for this exact application.',messageUrl:'https://mail.google.com/mail/u/0/#all/'+id,receivedAt:new Date().toISOString(),authentication:'gmail-dmarc-header-pass',matches:{trustedSender:true,recipient:true,deliveryWindow:true,employer:true,role:true,uniqueJob:true}}});
  return new OutcomeService({store}).accept(id,{automatic:true});
 }
 const browserReceipt=(job,profile,pkg,intent)=>({id:randomUUID(),type:'employer_confirmation',jobId:job.id,identity:job.identity,candidateId:profile.id,email:profile.email,title:job.title,employer:job.employer,attemptId:intent.id,packageId:pkg.id,packageHash:pkg.hash,supportingArtifacts:[]});

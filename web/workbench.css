@@ -33,9 +33,9 @@
 .hub-home-next .registry-heading>div { display:block; }
 .hub-home-next .registry-heading h2 { font-size:16px; font-weight:500; }
 .hub-home-next .registry-heading>div>span { display:block; margin-top:4px; }
-.hub-home-next .registry-scroll { flex:1; display:flex; align-items:center; min-height:180px; }
+.hub-home-next .registry-scroll { display:flex; align-items:flex-start; min-height:0; }
 .hub-home-next .registry-map { padding:16px 24px 24px; }
-.hub-home-next .registry-map:has(.registry-node:only-child) { min-height:188px; gap:36px; padding-inline:20px; }
+.hub-home-next .registry-map:has(.registry-node:only-child) { min-height:140px; gap:32px; padding-inline:20px; }
 .hub-home-next .registry-root { background:var(--raised); width:168px; min-height:64px; padding:12px; }
 .hub-home-next .registry-root strong { font-size:13px; }
 .hub-home-next .registry-root span { font-size:12px; }
@@ -73,24 +73,24 @@
 .hub-home-next .selected-heading>.button { min-height:44px; padding:8px 12px; font-size:12px; }
 .hub-home-next .local-progress-heading { display:none; }
 .hub-home-next .hub-flow-scroll { overflow-x:auto; overflow-y:visible; padding:0 0 4px; }
-.hub-home-next .hub-flow-map { display:grid; grid-template-columns:repeat(6,minmax(132px,1fr)); grid-template-rows:96px 56px; gap:24px 16px; min-width:940px; position:relative; padding-bottom:0; }
-.hub-home-next .workflow-links { position:absolute; inset:0; width:100%; height:176px; color:var(--field-border); pointer-events:none; overflow:visible; }
+.hub-home-next .hub-flow-map { display:grid; grid-template-columns:repeat(6,minmax(132px,1fr)); grid-template-rows:auto auto; gap:24px 16px; min-width:940px; position:relative; padding-bottom:0; }
+.hub-home-next .workflow-links { position:absolute; inset:0; width:100%; height:100%; color:var(--field-border); pointer-events:none; overflow:visible; }
 .hub-home-next .workflow-links path { stroke:currentColor; fill:none; stroke-width:1; vector-effect:non-scaling-stroke; }
 .hub-home-next .workflow-links .workflow-exception { stroke-dasharray:4 4; }
 .hub-home-next .hub-flow-node { position:relative; z-index:1; border:0; border-top:2px solid var(--control-border); border-radius:4px; padding:12px; min-height:96px; background:var(--surface); align-items:flex-start; }
 .hub-home-next .hub-flow-node.has-work { background:var(--raised); border-top-color:var(--green); }
-.hub-home-next .hub-flow-node:not(.flow-outcomes)::after { content:'›'; position:absolute; width:16px; right:-17px; top:30px; color:var(--secondary); font-size:24px; font-weight:400; text-align:center; background:none; }
+.hub-home-next .hub-flow-node:not(.flow-outcomes)::after { content:'›'; position:absolute; width:16px; right:-17px; top:50%; transform:translateY(-50%); color:var(--secondary); font-size:24px; font-weight:400; text-align:center; background:none; }
 .hub-home-next .hub-flow-node::before { display:none; }
 .hub-home-next .hub-flow-node:hover { background:var(--raised); }
-.hub-home-next .flow-node-title strong { font-size:12px; font-weight:500; }
-.hub-home-next .flow-node-metric { font-size:13px; color:var(--text); line-height:1.4; margin-top:10px; }
+.hub-home-next .flow-node-title strong { font-size:14px; line-height:1.5; font-weight:500; }
+.hub-home-next .flow-node-metric { font-size:13px; color:var(--text); line-height:1.5; margin-top:8px; }
 .hub-home-next .flow-node-metric>i { display:none; }
-.hub-home-next .hub-flow-node>small { font-size:11px; color:var(--muted); margin-top:4px; }
-.hub-home-next .hub-flow-review { grid-column:3 / 5; grid-row:2; justify-self:center; align-self:start; min-width:0; width:280px; max-width:280px; height:56px; min-height:56px; padding:8px 12px; border:1px solid var(--field-border); background:var(--surface); border-radius:6px; z-index:1; }
+.hub-home-next .hub-flow-node>small { font-size:12px; line-height:1.5; color:var(--muted); margin-top:4px; }
+.hub-home-next .hub-flow-review { grid-column:3 / 5; grid-row:2; justify-self:center; align-self:start; min-width:0; width:280px; max-width:280px; height:auto; min-height:56px; padding:8px 12px; border:1px solid var(--field-border); background:var(--surface); border-radius:6px; z-index:1; }
 .hub-home-next .hub-flow-review strong { font-weight:500; }
 .hub-home-next .hub-flow-review>span { display:block; }
-.hub-home-next .hub-flow-review strong { display:block; line-height:18px; }
-.hub-home-next .hub-flow-review small { display:block; font-size:11px; line-height:16px; margin-top:2px; }
+.hub-home-next .hub-flow-review strong { display:block; font-size:14px; line-height:1.5; }
+.hub-home-next .hub-flow-review small { display:block; font-size:12px; line-height:1.5; margin-top:4px; }
 .hub-home-next .progress-footer { margin-top:4px; }
 .hub-home-next .progress-footer>span { font-size:11px; }
 .hub-home-next .home-setup { margin-top:8px; padding:12px 16px; background:var(--surface); border-radius:6px; }
@@ -205,7 +205,7 @@
  .hub-home-next .home-heading>.button { max-width:132px; padding:8px 12px; font-size:12px; }
  .hub-home-next .registry-heading { padding:16px 16px 0; }
  .hub-home-next .registry-heading h2 { font-size:14px; }
- .hub-home-next .registry-scroll { min-height:220px; }
+ .hub-home-next .registry-scroll { min-height:0; }
  .hub-home-next .registry-map { padding-inline:16px; }
  .hub-home-next .registry-root { width:168px; margin-inline-start:16px; }
  .hub-home-next .registry-nodes { gap:20px; }
@@ -258,4 +258,79 @@
 }
 @media(prefers-reduced-motion:reduce) {
  .hub-v4 * { scroll-behavior:auto; }
+}
+
+/* Content sets the height. The measured SVG follows the resulting node edges. */
+.hub-home-next .home-command-center { align-items:start; }
+.hub-home-next .registry-map { padding-block:16px; }
+.hub-home-next .registry-nodes { margin-top:32px; }
+.hub-home-next .registry-nodes::before { top:-16px; }
+.hub-home-next .registry-node::before { height:16px; }
+.hub-home-next .registry-root::after { height:16px; }
+.hub-home-next .hub-flow-scroll { padding:4px 4px 8px; margin-inline:-4px; }
+.hub-home-next .hub-flow-map { grid-template-columns:repeat(6,minmax(144px,1fr)); min-width:1000px; }
+.hub-home-next .hub-flow-node { justify-content:flex-start; overflow-wrap:anywhere; }
+.hub-home-next .hub-flow-review { width:280px; max-width:100%; overflow-wrap:anywhere; }
+.hub-home-next .home-discovery-lead>.button { white-space:normal; text-align:start; line-height:1.5; gap:12px; }
+.hub-home-next .home-discovery-lead>.button>svg { flex:none; }
+.hub-home-next .home-heading p,.hub-home-next .context-description { font-size:14px; }
+.hub-home-next .context-ledger,.hub-home-next .selected-heading p,.hub-home-next .progress-footer>span { font-size:13px; line-height:1.5; }
+.hub-home-next .registry-footer { flex-wrap:wrap; }
+.hub-home-next .registry-footer>span { flex:1 1 160px; }
+.hub-v4 .field-error { color:var(--red); font-size:13px; line-height:1.5; }
+.hub-v4 .field [aria-invalid=true] { border-color:var(--red); }
+.hub-v4 .field-error::before { content:'Correction: '; }
+.hub-v4 .modal-header h2 { min-width:0; overflow-wrap:anywhere; line-height:1.4; }
+.hub-v4 .modal-header>.icon-button { flex:none; }
+.hub-v4 .modal h2:focus-visible,.hub-v4 .inspector-header h2:focus-visible { outline:2px solid var(--green); outline-offset:4px; }
+.hub-v4 .history-scope { color:var(--muted); font-size:13px; line-height:1.5; margin-bottom:16px; }
+.job-discovery .jd-results-heading>p { scroll-margin-top:24px; }
+.job-discovery .jd-results-heading>p:focus-visible { outline:2px solid var(--green); outline-offset:4px; }
+.job-discovery .jd-pagination button[aria-disabled=true] { opacity:.5; cursor:default; }
+@media(max-width:600px) {
+ .hub-home-next .home-command-center { gap:16px; }
+ .hub-home-next .registry-root { margin-inline-start:26px; }
+ .hub-home-next .registry-map { padding-block:12px 16px; }
+ .hub-home-next .registry-footer>span { max-width:none; }
+ .hub-home-next .registry-heading { flex-wrap:wrap; }
+ .hub-home-next .home-heading { flex-wrap:wrap; }
+ .hub-home-next .home-heading p { max-width:none; }
+ .hub-v4 .field input,.hub-v4 .field textarea,.hub-v4 .field select,.job-discovery input,.job-discovery select { font-size:16px; }
+}
+
+/* The mobile navigation also grows when text is enlarged. */
+.hub-v4 .skip-link { top:0; transform:translateY(calc(-100% - 16px)); }
+.hub-v4 .skip-link:focus { top:12px; transform:none; }
+.hub-v4 .skip-link:not(:focus) { clip-path:inset(50%); }
+@media(max-width:1000px) {
+ .hub-v4 .sidebar { height:auto; min-height:72px; padding-inline:0; align-items:stretch; overflow-x:auto; overscroll-behavior-x:contain; }
+ .hub-v4 .sidebar nav { align-items:stretch; flex:3 0 auto; grid-template-columns:repeat(3,minmax(max-content,1fr)); }
+ .hub-v4 .sidebar-bottom { display:flex; align-items:stretch; min-width:0; flex:1 0 auto; }
+ .hub-v4 .sidebar .nav-item { min-width:0; width:100%; height:100%; overflow-wrap:normal; white-space:nowrap; }
+ .hub-v4 .sidebar .nav-item>span { max-width:100%; }
+ .hub-v4 .main-shell { padding-bottom:calc(3.6em + 56px); }
+}
+@media(max-width:699px) {
+ .hub-home-next .registry-map:has(.registry-node:only-child) .registry-root::after { top:100%; left:50%; width:1px; height:16px; }
+}
+
+/* Shared shell for the automation-first Home. Connections lives in Automations. */
+.hub-v4 .topbar { justify-content:flex-end; }
+.hub-v4 .topbar .breadcrumb { margin-inline-end:auto; }
+.hub-v4 .sidebar .nav-item { font-size:16px; line-height:1.5; }
+.hub-v4 .brand { font-size:16px; }
+.hub-v4 main { padding-top:32px; }
+.hub-v4 .page-heading h1 { font-size:32px; line-height:1.2; }
+.hub-v4 .page-heading p { font-size:16px; }
+.hub-v4 .decision-body { font-size:16px; }
+.hub-v4 .button { white-space:normal; }
+@media(max-width:1000px) {
+ .hub-v4 .sidebar { overflow:visible; }
+ .hub-v4 .sidebar nav { flex:1 1 100%; width:100%; grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .hub-v4 .sidebar .nav-item { font-size:14px; white-space:normal; overflow-wrap:anywhere; }
+ .hub-v4 .sidebar .nav-item>span { min-width:0; overflow-wrap:anywhere; }
+}
+@media(max-width:600px) {
+ .hub-v4 main { padding:24px 16px 32px; }
+ .hub-v4 .page-heading h1 { font-size:28px; }
 }

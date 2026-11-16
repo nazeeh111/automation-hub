@@ -8,6 +8,7 @@ import {Store} from '../server/store.mjs';
 import {AppVault} from '../server/vault.mjs';
 import {EmployerAccountAdapter} from '../server/account-adapter.mjs';
 import {OutcomeService} from '../server/outcomes.mjs';
+import {outcomeMatchContext} from '../server/inbox.mjs';
 import {consentFingerprint} from '../server/adapters.mjs';
 
 const passphrase='synthetic integration passphrase only';
@@ -27,7 +28,7 @@ function seedJob(ctx,overrides={}){
 }
 function seedProposal(ctx,job,overrides={}){
  const messageId=overrides.messageId||'message-a';const {evidence:changes,...rest}=overrides;
- return ctx.store.put('inbox_proposal',{id:'proposal-'+messageId,jobId:job.id,jobIdentity:job.identity,candidateEmail:candidate.email,messageId,proposedOutcome:'submitted',confidence:'matched',state:'open',...rest,evidence:{source:'gmail',sender,recipient:candidate.email,subject:'Application received',employer:job.employer,title:job.title,requisition:'REQ-A',authentication:'gmail-dmarc-header-pass',quote:'We received your application for Sensor engineering intern, REQ-A at Example Employer.',messageUrl:'https://mail.google.com/mail/u/0/#all/'+messageId,receivedAt:'2026-11-14T15:00:00Z',matches:{trustedSender:true,recipient:true,deliveryWindow:true,employer:true,role:true,requisition:true,uniqueJob:true},...changes}});
+ return ctx.store.put('inbox_proposal',{id:'proposal-'+messageId,jobId:job.id,jobIdentity:job.identity,candidateEmail:candidate.email,messageId,proposedOutcome:'submitted',confidence:'matched',state:'open',matchContext:outcomeMatchContext(job,ctx.store.get('profile','main'),ctx.store.list('job')),...rest,evidence:{source:'gmail',sender,recipient:candidate.email,subject:'Application received',employer:job.employer,title:job.title,requisition:'REQ-A',authentication:'gmail-dmarc-header-pass',quote:'We received your application for Sensor engineering intern, REQ-A at Example Employer.',messageUrl:'https://mail.google.com/mail/u/0/#all/'+messageId,receivedAt:'2026-11-14T15:00:00Z',matches:{trustedSender:true,recipient:true,deliveryWindow:true,employer:true,role:true,requisition:true,uniqueJob:true},...changes}});
 }
 
 test('an explicit lock wins over an unlock already deriving its key',async t=>{

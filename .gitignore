@@ -24,3 +24,6 @@ live/
 rehearsal/
 backups/
 runtime/
+
+# Local synthetic review captures produced by UI checks
+docs/experience-pass-2026-11-16/

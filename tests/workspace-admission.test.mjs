@@ -7,8 +7,8 @@ import path from 'node:path';
 import {createHub} from '../server/index.mjs';
 
 async function fixture(t){
- const directory=await mkdtemp(path.join(tmpdir(),'hub-workspace-admission-')),hub=await createHub({directory,port:0,open:false});
- t.after(async()=>{await hub.close();await rm(directory,{recursive:true,force:true});});
+ const directory=await mkdtemp(path.join(tmpdir(),'hub-workspace-admission-')),hub=await createHub({directory,port:0,open:false}),requests=[];
+ t.after(async()=>{for(const request of requests)request.destroy();await hub.close();await rm(directory,{recursive:true,force:true});});
  const auth=await fetch(hub.launchUrl,{redirect:'manual'}),cookie=auth.headers.get('set-cookie').split(';')[0];
  const headers=workspace=>({Cookie:cookie,Origin:hub.baseUrl,'Content-Type':'application/json','X-Hub-Workspace':workspace});
  const post=async(route,body,workspace='real')=>{const response=await fetch(hub.baseUrl+route,{method:'POST',headers:headers(workspace),body:JSON.stringify(body)});return {status:response.status,body:await response.json()};};
@@ -19,9 +19,15 @@ async function fixture(t){
   let request;
   const response=new Promise((resolve,reject)=>{
    request=http.request(hub.baseUrl+route,{method:'POST',headers:{...headers('real'),'Content-Length':Buffer.byteLength(body)}},res=>{let raw='';res.on('data',part=>raw+=part);res.on('end',()=>{try{resolve({status:res.statusCode,body:JSON.parse(raw)});}catch(error){reject(error);}});});
+   requests.push(request);
    request.setTimeout(5000,()=>request.destroy(new Error('Synthetic streamed request timed out')));request.on('error',reject);request.write(body.slice(0,1));
   });
-  await received;return {finish:()=>{request.end(body.slice(1));return response;}};
+  await Promise.race([received,response.then(()=>{throw new Error('Synthetic streamed request ended before body admission');})]);
+  // The test deliberately withholds the remaining body while other requests
+  // seed/render and switch workspaces. Socket inactivity is expected here;
+  // the test's absolute deadline still bounds that controlled hold.
+  request.setTimeout(0);
+  return {finish:()=>{request.setTimeout(5000);request.end(body.slice(1));return response;}};
  }};
 }
 
@@ -32,7 +38,7 @@ const routes=[
  ['/api/demo',{enabled:false}],
 ];
 
-for(const aba of [false,true])for(const [route,body] of routes)test(`streamed ${route} rejects a workspace ${aba?'switch away and back':'switch'} before body admission`,async t=>{
+for(const aba of [false,true])for(const [route,body] of routes)test(`streamed ${route} rejects a workspace ${aba?'switch away and back':'switch'} before body admission`,{timeout:30000},async t=>{
  const {hub,post,beginSlow}=await fixture(t),slow=await beginSlow(route,body);
  assert.equal((await post('/api/demo',{enabled:true})).status,200);
  if(aba)assert.equal((await post('/api/demo',{enabled:false},'fixture')).status,200);

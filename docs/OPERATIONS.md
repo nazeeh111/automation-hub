@@ -2,7 +2,7 @@
 
 The default private runtime is `~/Library/Application Support/Automation Hub`. `live/` contains the real ledger, encrypted app vault and retained artifacts. `rehearsal/` is synthetic. `backups/` holds recovery snapshots and `runtime/` contains locally installed tools. Do not publish any of these directories.
 
-Home shows the retained US internship observation total, selected roles, documents and employer-confirmed outcomes, plus a next action drawn from the saved work. Open Needs You for waiting questions, the application queue for selected work or Discover for employer observations. Source freshness and the role's current queue eligibility remain visible in Discover.
+Home places each automation’s state, next action and compact flow together. Browse US internships before importing anything. For selected roles, finish résumé import and essential profile details, then review campaign rules. Needs You opens the exact retained question or résumé version. Missing or stale review evidence provides an application or library recovery route. Source freshness and queue eligibility remain visible in Discover. Connections and private data recovery are in Automations → Connections.
 
 Use Discover to find US internships. **Add source** saves a public Greenhouse or Lever employer board locally. **Check jobs** explicitly refreshes that board's public openings. Assess geography from employer-supplied job-location evidence, with unknown or ambiguous locations retained for review. A regional board hostname does not determine job geography. Actual employer forms remain separately verified. No resume, AI connection, employer account or campaign enablement is needed to browse or save roles.
 
@@ -24,6 +24,16 @@ Use the workspace's Pause or Stop control to prevent subsequent campaign work. T
 
 Settings provides a credential-free ledger export and a separate private backup. A ledger export is not a complete document backup. Keep full backups private even when their vault is encrypted.
 
-Before restoring, stop the hub and preserve the actual current runtime bytes, including SQLite WAL/SHM files if present. Reconcile submissions after the backup date. Restore a complete matching snapshot to the same runtime location because retained artifact paths refer to it. Do not mix a database and documents from different snapshots. Keep the preserved current copy until the restored documents, history and connections have been inspected. Leave campaigns paused until uncertainty is resolved.
+### Restore a complete workspace backup
+
+1. Pause campaign work and create a private backup if the workspace can still open. A backup is separate from the ledger export.
+2. Shut down the worker through **Automation Hub → Shut Down Background Worker…**, or run `npm run service:stop` with the same absolute `HUB_DATA_DIR`. Native Quit and campaign Stop leave that worker alive. Continue only after the native panel or command reports verified shutdown. A timeout, missing socket, accepted request or repeated stop attempt is insufficient.
+3. Read the selected backup's `manifest.json`. Its `originalDirectory` identifies the exact workspace folder, normally `live/` or `rehearsal/`. Preserve that entire current folder at a separate private location, including SQLite WAL/SHM bytes if present. Do not move the outer runtime directory, tools or unrelated workspace.
+4. Restore the complete matching snapshot to its original workspace path, retaining private ownership and permissions. Keep its database, originals, packages, evidence and encrypted vault from the same snapshot. Retained absolute artifact paths must still resolve. Do not combine database/document generations or discard the preserved current copy.
+5. Explicitly reconnect or reopen. Review the paused campaign, retained documents and connections. Reconcile applications and messages after the backup date before enabling work. A restored dispatched attempt remains uncertain until matching evidence resolves it.
+
+The app does not silently perform an actual-data restore. The supported stop route and recovery procedure are tested using isolated synthetic data; physical disk failure and arbitrary external writers are not certified.
 
 Supported optional configuration uses `HUB_PORT`, absolute `HUB_DATA_DIR`, `HUB_CODEX_BIN`, `HUB_SOFFICE_BIN` and `PLAYWRIGHT_BROWSERS_PATH`. The build-only `HUB_NODE_LICENSE` selects the matching Node distribution's complete license file when it has a different installation layout. Do not place secrets in these settings or commit generated `native-config.json` and native build receipts. Configure service secrets only through the intended app-vault route.
+
+Known startup failures now identify invalid data/port/capability settings without exposing launch tickets or arbitrary child diagnostics. Correct the named setting; no automatic alternate port, directory or permission route is used. Explicit tool/cache overrides beat captured configuration. Optional unavailable tools remain separate connection holds rather than a prerequisite for browsing.
