@@ -38,7 +38,7 @@ test('refresh receipt labels previous successful partial observations without in
 test('folded menu owns its keyboard interaction and workspace search remains readable at every width',async({page})=>{
  const fixture=await recoveryFixture(createHub),{hub,store}=fixture;store.put('package',{...fixture.packet,explanation:'Retained unchanged.'});
  try{
-  await page.goto(hub.launchUrl);
+  await page.goto(hub.launchUrl);await expect(page.getByRole('button',{name:'Find in your workspace',exact:true})).toBeEnabled();
   for(const width of [1440,390,320]){
    await page.setViewportSize({width,height:844});
    if(width<1100){const menu=page.getByRole('button',{name:'Open navigation',exact:true});await menu.click();await page.keyboard.press('Control+k');await expect(page.getByRole('dialog',{name:'Workspace navigation',exact:true})).toBeVisible();await expect(page.locator('.quick-open')).toHaveCount(0);await page.keyboard.press('Escape');await expect(menu).toBeFocused();}

@@ -48,3 +48,25 @@ jobs:
         run: node --test --test-concurrency=1 tests/*.test.mjs
       - name: Check production build and browser workflows
         run: npm run build && npm run test:e2e
+
+      - name: Report browser failure context
+        if: failure()
+        run: |
+          node --input-type=module <<'NODE'
+          import {readdir,readFile,appendFile} from 'node:fs/promises';
+          import path from 'node:path';
+          const files=[];
+          async function walk(directory){
+            let entries;try{entries=await readdir(directory,{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return;throw error;}
+            for(const entry of entries){const file=path.join(directory,entry.name);if(entry.isDirectory())await walk(file);else if(entry.isFile()&&entry.name==='error-context.md')files.push(file);}
+          }
+          await walk('test-results');files.sort();
+          const escape=value=>value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+          const lines=['## Browser failure context',`Found ${files.length} context files; showing at most 10, each limited to 16000 characters. Screenshots and traces remain local Playwright outputs.`];
+          for(const file of files.slice(0,10)){
+            const content=await readFile(file,'utf8');
+            lines.push(`<details><summary>${escape(file)}</summary><pre>${escape(content.slice(0,16000))}${content.length>16000?'\n[Truncated]':''}</pre></details>`);
+          }
+          if(!files.length)lines.push('No browser context was produced. Check the failed service or build step above.');
+          await appendFile(process.env.GITHUB_STEP_SUMMARY,lines.join('\n\n')+'\n');
+          NODE
