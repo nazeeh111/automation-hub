@@ -1,0 +1,28 @@
+{
+  "source_parent": "157ceb900b1988cc4f1e862a9b88f043215a7b85",
+  "source_tree": "ba87131f50020f957399d9bb5bdbb2e44dfcbf43",
+  "encoding": "Three actual synthetic review states; shared identical PDF bytes, different retained source content hashes and old HTTP409 refusal. Relationship/state schematic, no physical plot or employer performance claim.",
+  "files": {
+    "LICENSE": "08b86cd47be5b3a86c7252f0ec3279bcc8c3df5879532953badc934e15391bf4",
+    "README.md": "2bf87574dc41c3aa95e459d1fbc66a4c43baa77ba0518eb8ebdb257356309877",
+    "binding-mobile.png": "21a420c4278a137add9e3d2aba8156352a4e7c1ba9c30b5cd9c5a2ba8e2856df",
+    "binding-mobile.svg": "b4dcef106a62ad13cdcc1c9c9e884c03c4f717b92faaa95977990ea5a4473d9e",
+    "binding.png": "6e9d55fc6965b2b8f1327c092df65e7b158ea687c190b205313753d904d682b8",
+    "binding.svg": "a6904ecb87b3bed59a5c191a1bfef97bd31e6b386af7e68b1ed704d84f829598",
+    "bundle-manifest.json": "40482459f772bc76fa6ba58bc58ba32b05033fbfab99c38b4015674b7452ea44",
+    "candidate.md": "8999db0864598cf670ff15053a85f3ee7ff00d7f8966e700d7658e1946e60c66",
+    "case.json": "53aa73bd4524ce293833efd111e3ab84bb8b6286f0efe6585b0da8cddb7545d8",
+    "figure.py": "cc158bef8dbe9de4a6a79675a8e9751e28875855a398ad7d457e6075cd59efdf",
+    "finished.pdf": "011d4632df72b6e93b0ece6e6401443d8335a87b3b4c992489c1c037ce30ec46",
+    "ledger-export.json": "fd9e1756061accde646374cfd23c0bdc0f9b0b90a855fa22eb0535dec24e6c33",
+    "native-reopen.mjs": "10f665fa49d595b80a50e9e9ac0db70dca4c31eaef65d327681da1c140f26f1b",
+    "posting-desktop.png": "d70f8dab454c1e2cb68a1ae7744fdf32375f76d1005b83bca61aa42796f485c9",
+    "posting-phone.png": "e751152d98b5d9e362ca69c3a4ac61e532fa8f56f768db13af9875aab1a44778",
+    "prepared.pdf": "011d4632df72b6e93b0ece6e6401443d8335a87b3b4c992489c1c037ce30ec46",
+    "reader-source/posting-observations.mjs": "cdb31a3d3d1a22413c5be3ea71006599dfdf2e5f83d65f1f7c1a589ac7a093a8",
+    "reader-source/store.mjs": "2adea73eece589522413f04a5e2932cbcbfb0449de0ad3b768f0f152411759ae",
+    "reader-source/writing-policy.mjs": "454229451cac8ea254b4d6eda990d11e753b290065421f3d56756c3e23a97d45",
+    "reopen.py": "b02aa8b7346a0754598a058cbe4e23caa6175c0a62a0d12b2e40dbeea1ac8a3a",
+    "retained-review.zip": "6981841d83a3e46f4b2b315588668611b0eec0fadf3f2f6b36609e2af36ad77f"
+  }
+}
