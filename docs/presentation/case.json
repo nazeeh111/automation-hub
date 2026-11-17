@@ -1,0 +1,57 @@
+{
+  "scope": "Current source, owned synthetic workspace; injected fictional posting adapter; no real account/application/provider",
+  "sourceParent": "157ceb900b1988cc4f1e862a9b88f043215a7b85",
+  "postingA": {
+    "title": "Controls engineering internship",
+    "employer": "Example Controls",
+    "sourceUrl": "https://fixture.example.invalid/controls",
+    "text": "Engineering internship. Python preferred. The original source is retained.",
+    "open": true,
+    "sourceHash": "synthetic-source-a",
+    "deadline": "2027-04-01T12:00:00Z"
+  },
+  "postingB": {
+    "title": "Controls engineering internship",
+    "employer": "Example Controls",
+    "sourceUrl": "https://fixture.example.invalid/controls",
+    "text": "Engineering internship. Python and signal processing preferred. The revised source is retained.",
+    "open": true,
+    "sourceHash": "synthetic-source-b",
+    "deadline": "2027-03-01T12:00:00Z"
+  },
+  "originalSHA256": "011d4632df72b6e93b0ece6e6401443d8335a87b3b4c992489c1c037ce30ec46",
+  "beforePackageId": "package-f6bae7dd-98a3-436f-a244-df21a9231a04",
+  "afterPackageId": "package-2d619f24-43d0-46b5-bd17-6807de0eba6d",
+  "beforeBinding": {
+    "jobIdentity": "synthetic:controls",
+    "observationId": "posting-5e6c0019c5140a1019fb45313f0e04df6d6074cd",
+    "sourceHash": "synthetic-source-a",
+    "contentHash": "640cd14a647c1001756b3dbfade7c773a0b35098574c8a0908a4e041c4aa92e5"
+  },
+  "afterBinding": {
+    "jobIdentity": "synthetic:controls",
+    "observationId": "posting-f10c9f70e9eaf9f69f4819cecb16f102afc25871",
+    "sourceHash": "synthetic-source-b",
+    "contentHash": "5ec853f236c12792e43bbc486ed2c16da1fc2a30a0c5e082b3829bfec1b0983c"
+  },
+  "oldReviewRefusal": {
+    "status": 409,
+    "body": {
+      "error": "The employer posting changed after this résumé was prepared. Review the saved source versions, then prepare and review a current document.",
+      "code": "posting_changed"
+    }
+  },
+  "reopen": {
+    "currentPackage": "package-2d619f24-43d0-46b5-bd17-6807de0eba6d",
+    "approved": true,
+    "observations": 2,
+    "originalAndBothPackagesSameSHA256": "011d4632df72b6e93b0ece6e6401443d8335a87b3b4c992489c1c037ce30ec46",
+    "campaignOff": true
+  },
+  "counts": {
+    "postingReads": 1,
+    "modelCalls": 0,
+    "submissions": 0,
+    "runs": 0
+  }
+}

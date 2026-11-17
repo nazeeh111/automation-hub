@@ -1,14 +1,18 @@
 # Automation Hub
 
-### Your internship search, from first saved role to final evidence.
+**Your internship search, with the evidence still attached.** Save roles, retain original résumés, review exact employer questions and keep prepared documents tied to the posting they use. A local, macOS-first workbench with human review.
 
-Automation Hub is a local macOS workbench for finding US internships, preparing applications and keeping the work reviewable. Employer postings, original résumés, exact questions, document versions and application evidence stay connected in one workspace.
+### Same PDF. New posting. Fresh review.
 
-[Take the tour](docs/DEMO.md) · [Run locally](#run-locally) · [Architecture](docs/ARCHITECTURE.md) · [Operation & recovery](docs/OPERATIONS.md)
+In this executed synthetic case, a finished PDF and both prepared packages have **identical bytes**. A newer posting changes the preferred skills and deadline. The earlier document stays available, but its old review request returns **409 / posting_changed**. Preparing and reviewing a new package binds those same PDF bytes to the new source. Campaign off; zero model calls and zero submissions.
 
-[![Automation Hub's application desk, showing the actual retained résumé beside its role and review state.](docs/media/product-hero.png)](docs/media/application-document.png)
+<picture><source media="(max-width: 600px)" srcset="docs/presentation/binding-mobile.svg"><img src="docs/presentation/binding.svg" alt="An identical synthetic PDF crosses three actual states: reviewed against posting A, held when posting B arrives, then prepared and explicitly reviewed against B. The old review request is refused with HTTP 409." width="100%"></picture>
 
-Actual software with curated synthetic fixtures. Campaign off; no live application or hiring outcome is shown. [Explore the workflow](docs/DEMO.md).
+[Inspect the recorded case](docs/presentation/README.md) · [Download the complete reader](docs/presentation/retained-review.zip) · [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
+
+The source comparison below is the actual running application with fictional people and an injected local employer adapter. It uses an isolated workspace, not a real account or the fresh built-in seed. The retained approval is historical; the posting hold is current. No live application or hiring outcome is shown.
+
+<picture><source media="(max-width: 600px)" srcset="docs/presentation/posting-phone.png"><img src="docs/presentation/posting-desktop.png" alt="Actual Automation Hub source review in an isolated synthetic workspace. The saved document uses the earlier posting; a newer posting changes its text and deadline, and Prepare updated posting is offered." width="100%"></picture>
 
 **Local storage · Human review · Optional AI · MIT source**
 

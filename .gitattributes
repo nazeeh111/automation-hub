@@ -1,0 +1,2 @@
+# Keep recorded public synthetic artifacts byte-exact through Git.
+docs/presentation/** -text -eol
