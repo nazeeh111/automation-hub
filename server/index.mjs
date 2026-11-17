@@ -150,19 +150,21 @@ export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(h
    const job=store.get('job',body.jobId);if(!job)throw fail('Application not found.',404);
    if(typeof body.resumeId!=='string'||!body.resumeId||!store.get('resume',body.resumeId)||store.get('resume',body.resumeId).mega)throw fail('Choose an existing finished résumé. The mega résumé is evidence only.',400);
    if(['preparing','applying','uncertain','submitted','manual','interview','offer','rejected','assessment','cancelled','closed'].includes(job.state))throw fail('This application cannot change documents in its current state.',409);
-   if(!job.posting?.sourceHash||job.latestPostingObservationId&&job.latestPostingObservationId!==job.postingObservationId){store.put('job',{...job,selectedResumeId:body.resumeId,state:'imported',preparationRequested:true,revision:job.revision+1,nextAction:'Read the current employer posting before preparing your selected resume'});for(const decision of store.list('decision'))if(decision.jobId===job.id&&decision.code==='posting_changed'&&decision.state==='open')store.put('decision',{...decision,state:'resolved',answer:'The selected finished résumé will be prepared after rereading the current posting',resolvedAt:now()});return {queued:true,postingRefreshRequired:true};}
+   if(!job.posting?.sourceHash||job.latestPostingObservationId&&job.latestPostingObservationId!==job.postingObservationId)return store.transaction(()=>{store.put('job',{...job,selectedResumeId:body.resumeId,state:'imported',preparationRequested:true,revision:job.revision+1,nextAction:'Read the current employer posting before preparing your selected resume'});for(const decision of store.list('decision'))if(decision.jobId===job.id&&decision.code==='posting_changed'&&decision.state==='open')store.put('decision',{...decision,state:'resolved',answer:'The selected finished résumé will be prepared after rereading the current posting',resolvedAt:now()});return {queued:true,postingRefreshRequired:true};});
    const fenced=store.put('job',{...job,state:'preparing',revision:job.revision+1,preparationRequested:false,nextAction:'Prepare your selected finished resume'});
-   try{const pkg=await resumes.select(fenced,body.resumeId);const latest=store.get('job',job.id);
-    if(latest.revision!==fenced.revision||latest.state!=='preparing')throw fail('This application changed during preparation. Open its current state before selecting a resume.',409);
-    const prepared=store.put('job',{...latest,packageId:pkg.id}),requirements=engine.reviewRequirements(prepared,pkg),limits=engine.reviewApplicationLimits(store.get('job',job.id)),current=store.get('job',job.id);
-    const open=store.list('decision').find(d=>d.jobId===job.id&&d.state==='open'&&d.code!=='package_review'),waiting=requirements.unresolvedMandatory.length>0||!limits.allowed||Boolean(open);
-    store.transaction(()=>{
+   try{const staged=await resumes.select(fenced,body.resumeId,{publish:false});
+    return store.transaction(()=>{
+     const latest=store.get('job',job.id);
+     if(latest.revision!==fenced.revision||latest.state!=='preparing')throw fail('This application changed during preparation. Open its current state before selecting a resume.',409);
+     const pkg=resumes.publishPackage(fenced,staged),prepared=store.put('job',{...store.get('job',job.id),packageId:pkg.id}),requirements=engine.reviewRequirements(prepared,pkg),limits=engine.reviewApplicationLimits(store.get('job',job.id)),current=store.get('job',job.id);
+     const open=store.list('decision').find(d=>d.jobId===job.id&&d.state==='open'&&d.code!=='package_review'),waiting=requirements.unresolvedMandatory.length>0||!limits.allowed||Boolean(open);
      const obsolete=store.list('decision').filter(d=>d.jobId===job.id&&d.code==='package_review'&&d.state==='open'&&(d.details?.packageId!==pkg.id||d.details?.hash&&d.details.hash!==pkg.hash));
      for(const review of obsolete)store.put('decision',{...review,state:'superseded',supersededAt:now(),supersededByPackageId:pkg.id});
      const saved=store.put('job',{...current,packageId:pkg.id,selectedResumeId:body.resumeId,state:waiting?'needs_you':'ready',revision:current.revision+1,nextAction:waiting?(!limits.allowed?limits.nextAction:open?.message||open?.question||'Resolve the remaining saved decisions'):'Review final resume before submission'});
      if(obsolete.length&&!pkg.approved){engine.hold(saved,'package_review','Review the replacement résumé before it can be submitted.',{packageId:pkg.id,hash:pkg.hash});if(waiting)store.put('job',{...store.get('job',job.id),nextAction:saved.nextAction,decisionId:open?.id||saved.decisionId});}
-    });return publicDocument(pkg);
-   }catch(error){const latest=store.get('job',job.id);if(latest.revision===fenced.revision&&latest.state==='preparing')store.put('job',{...latest,state:job.state,revision:latest.revision+1,nextAction:'Resume selection did not finish. Check the source and try again.'});throw error;}
+     return publicDocument(pkg);
+    });
+   }catch(error){const latest=store.get('job',job.id);if(latest.revision===fenced.revision&&latest.state==='preparing')store.put('job',{...latest,state:job.state,preparationRequested:job.preparationRequested,revision:latest.revision+1,nextAction:'Resume selection did not finish. Check the source and try again.'});throw error;}
   }
   if(body.action==='reviewPackage')return publicDocument(engine.reviewPackage(body));
   if(body.action==='registerWorkflow'){

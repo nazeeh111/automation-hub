@@ -100,6 +100,21 @@ function ashbyCandidate(source,row){
  const locationScope=new Set(places.map(place=>place.scope)).size===1?places[0].scope:'unknown',canonicalUrl=`${source.boardUrl}/${externalId}`;
  return {id:`${source.id}:${externalId}`,sourceId:source.id,externalId,provider:'ashby',region:'global',company:source.label,title,location:places.map(place=>place.location).filter(Boolean).join('; ').slice(0,2000),country:places[0].country,locations:places,locationScope,department:[text(row.department),text(row.team)].filter(Boolean).join(', '),employmentType:text(row.employmentType),workplaceType:text(row.workplaceType).toLowerCase(),description:description(row.descriptionPlain||row.descriptionHtml),url:canonicalUrl,canonicalUrl,postedAt:null,sourceUpdatedAt:timestamp(row.publishedAt),publishedAt:timestamp(row.publishedAt),publishedAtMeaning:'last_published',supportStatus:'external_portal',supportDetail:'Ashby public job discovery is supported. Application preparation and submission on Ashby require manual completion; no Ashby auto-apply adapter is available.'};
 }
+// Compare only observed posting content. Source labels, publication/update times,
+// availability, favorites and queue state do not establish a posting edit. A
+// metadata-only fallback also cannot establish that a description was removed.
+const refreshContentFields=['title','location','country','locationScope','locations','department','employmentType','workplaceType','url','canonicalUrl'];
+function refreshContentChanged(prior,row){
+ if(refreshContentFields.some(field=>JSON.stringify(prior[field]??null)!==JSON.stringify(row[field]??null)))return true;
+ const comparable=value=>value.descriptionCoverage==='bounded_preview'||!value.descriptionCoverage&&typeof value.description==='string';
+ return comparable(prior)&&comparable(row)&&prior.description!==row.description;
+}
+function refreshSummary(source,previous,rows,complete,observedAt){
+ const baseline=!source.lastObservedAt,priorById=new Map(previous.map(row=>[row.id,row])),seen=new Set(rows.map(row=>row.id));
+ const counts={baseline:baseline?rows.length:0,new:0,changed:0,seenAgain:0,noLongerListed:baseline||!complete?null:previous.filter(row=>!seen.has(row.id)&&row.availability!=='missing').length};
+ if(!baseline)for(const row of rows){const prior=priorById.get(row.id);if(!prior)counts.new++;else if(refreshContentChanged(prior,row))counts.changed++;else counts.seenAgain++;}
+ return {version:1,sourceId:source.id,observedAt,previousObservedAt:source.lastObservedAt||null,baseline,coverage:complete?'complete':'partial',observedCount:rows.length,counts};
+}
 async function boundedJSON(response,budget){
  const length=Number(response.headers?.get?.('content-length')??response.headers?.['content-length']);
  if(Number.isFinite(length)&&length>DISCOVERY_LIMITS.responseBytes){response.body?.destroy?.();await response.body?.cancel?.().catch(()=>{});throw fault('DISCOVERY_RESPONSE_LIMIT','The employer feed exceeded its bounded response size.');}
@@ -164,10 +179,10 @@ export class JobDiscovery{
    this.guard(context);const retained=this.store.list('discovery_candidate'),previous=retained.filter(row=>row.sourceId===id);if(new Set([...previous.map(row=>row.id),...seen]).size>DISCOVERY_LIMITS.retainedPerSource||new Set([...retained.map(row=>row.id),...seen]).size>DISCOVERY_LIMITS.retainedTotal)throw fault('DISCOVERY_RETENTION_LIMIT','The retained discovery limit was reached. Existing jobs and favorites were preserved.');
    const observedAt=new Date(this.clock()).toISOString();let saved;
    this.store.transaction(()=>{
-    this.guard(context);
+    this.guard(context);const lastRefreshSummary=refreshSummary(context.source,previous,rows,complete,observedAt);
     for(const row of rows){const prior=this.store.get('discovery_candidate',row.id);this.store.put('discovery_candidate',{...row,firstSeenAt:prior?.firstSeenAt||observedAt,lastSeenAt:observedAt,availability:'active'});}
     if(complete)for(const prior of previous)if(!seen.has(prior.id))this.store.put('discovery_candidate',{...prior,availability:'missing',lastAbsentAt:observedAt});
-    saved=this.store.put('discovery_source',{...context.source,status:complete?'ready':'partial',coverage:complete?'complete':'partial',lastAttemptAt:attemptedAt,lastObservedAt:observedAt,lastErrorCode:null,jobCount:rows.length,pagesRead:pages,requestsRead:requests,descriptionCoverage:metadataOnly?'metadata_only':'bounded_preview',warningCode:metadataOnly?'DISCOVERY_DESCRIPTION_LIMIT':null});
+    saved=this.store.put('discovery_source',{...context.source,status:complete?'ready':'partial',coverage:complete?'complete':'partial',lastAttemptAt:attemptedAt,lastObservedAt:observedAt,lastRefreshSummary,lastErrorCode:null,jobCount:rows.length,pagesRead:pages,requestsRead:requests,descriptionCoverage:metadataOnly?'metadata_only':'bounded_preview',warningCode:metadataOnly?'DISCOVERY_DESCRIPTION_LIMIT':null});
    });return this.sourceStatus(saved);
   })(),new Promise((_,reject)=>{timer=setTimeout(()=>{context.cancelled=true;controller.abort();reject(fault('DISCOVERY_TIMEOUT','The bounded employer refresh timed out. Earlier listings were retained.'));},this.timeoutMs);})]);
   }catch(error){try{this.guard(context,error.code==='DISCOVERY_TIMEOUT');this.store.put('discovery_source',{...context.source,status:'unavailable',lastAttemptAt:attemptedAt,lastErrorCode:error.code?.startsWith('DISCOVERY_')?error.code:'DISCOVERY_UNAVAILABLE'});}catch{}if(error.code?.startsWith('DISCOVERY_'))throw error;throw fault('DISCOVERY_UNAVAILABLE','The employer refresh failed. Earlier listings and favorites were retained.');}

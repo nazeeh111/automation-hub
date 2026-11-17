@@ -1,129 +1,139 @@
 # Automation Hub
 
-A local dashboard for personal automations, centered on finding and managing US internship applications, with an optional read-only view of existing n8n workflows.
+### Your internship search, from first saved role to final evidence.
 
-The internship workspace connects employer-feed discovery, selected jobs, exact source versions, original resumes, scoped questions, reviewed documents and application evidence. Discover remembers the current search, filters, page and role as you review its queued application, with an explicit return route. The application overview puts exact pending questions, requirements, document readiness and receipt evidence in one place. Home puts each automation’s state, next useful action and saved questions together. Phone discovery groups its controls above the opportunity list. A native document chooser brings the selected retained preview into reach; prepared versions enter review before their existing guarded approval. A light workspace shell uses one global navigation and one contextual section list. Needs You pairs the saved-question list with one active question, and the document library puts retained originals and package versions beside a full preview. Find in workspace (Command-K or Control-K) opens pages, exact saved applications and questions. Local reasoning activity, full per-application history and on-demand worker status make saved work easier to inspect and recover. n8n remains responsible for its own execution and schedules.
+Automation Hub is a local macOS workbench for finding US internships, preparing applications and keeping the work reviewable. Employer postings, original résumés, exact questions, document versions and application evidence stay connected in one workspace.
 
-This is an early macOS-first project. It is intended for one person on their own computer. Supported employer adapters currently cover Greenhouse and Lever, with local fixtures for their supported paths. Employer customizations and other portals need separate validation. A prepared document or a synthetic receipt does not establish a real submission or a hiring outcome.
+[Take the tour](docs/DEMO.md) · [Run locally](#run-locally) · [Architecture](docs/ARCHITECTURE.md) · [Operation & recovery](docs/OPERATIONS.md)
 
-![Application review with isolated synthetic data.](docs/images/application-overview.png)
+[![Automation Hub's application desk, showing the actual retained résumé beside its role and review state.](docs/media/product-hero.png)](docs/media/application-document.png)
 
-Application review with isolated synthetic data. [Home](docs/images/home.png), [phone queue](docs/images/applications-phone.png) and [phone Home](docs/images/home-phone.png).
+Actual software with curated synthetic fixtures. Campaign off; no live application or hiring outcome is shown. [Explore the workflow](docs/DEMO.md).
 
-## Run from source
+**Local storage · Human review · Optional AI · MIT source**
 
-Use Node.js 24.14 or newer. Install the locked dependencies, browser engines and production UI:
+## One role. Its whole story.
+
+A promising opening becomes a saved role. A selected role gets a document, questions and a history. When the employer changes the posting, the earlier source and prepared file remain available for comparison. When a submission outcome is uncertain, that uncertainty remains visible.
+
+1. **Discover.** Read public Greenhouse, Lever and Ashby employer boards. Search retained openings, check US location evidence and save a shortlist without a résumé, account connection or enabled campaign.
+2. **Prepare.** Choose a finished résumé or explicitly enable optional reasoning. Keep originals and inspect the exact prepared document alongside the posting it uses.
+3. **Review.** Resolve the employer's specific questions, check requirements and approve the actual document. Missing facts, changed sources and unfamiliar controls become explicit review work.
+4. **Track.** Keep preparation, dispatch, uncertain outcomes and matching employer evidence separate. Return to the exact application when a question or source needs another look.
+
+Saving a role does not submit an application. Campaigns start off; application work follows the campaign rules and required reviews.
+
+## What makes the workspace useful
+
+**A posting has a history.** Compare the source used for a document with the latest retained observation, including changed text. A newer posting holds use of an older package until the current source and document are reviewed. Failed preparation preserves the earlier file.
+
+**The question stays with the application.** Needs You opens the exact saved employer question. Answers and writing reviews belong to the current candidate, posting and document context. Changed context requires renewed review. Current unsaved answers survive navigation within the same UI session.
+
+**The original stays an original.** The document library keeps finished résumés, supporting evidence and prepared versions distinct, with full previews. Choosing an existing finished résumé does not require model reasoning.
+
+**Progress has evidence.** Application review brings source, requirements, document readiness and receipt checks together. Its history records what happened; an unknown external outcome requires reconciliation before another attempt.
+
+See the [guided fixture tour](docs/DEMO.md) for a reproducible walkthrough and the [design decisions](docs/PRODUCT_DECISIONS.md) for the implementation rationale.
+
+## Run locally
+
+Use **macOS and Node.js 24.14 or newer**. Clone the source, install the locked dependencies and browser engines, then build and start:
 
 ```sh
+git clone https://github.com/nazeeh111/automation-hub.git
+cd automation-hub
 npm ci --ignore-scripts
 npm run browser:install
 npm run build
 npm start
 ```
 
-The launcher opens an authenticated browser session on `127.0.0.1:4317`. Keep its terminal open; Ctrl+C stops the source-launched server. On macOS, `Start Hub.command` is an alternative after the first setup.
+The launcher opens a private authenticated browser session on `127.0.0.1:4317`. Keep its terminal open; **Ctrl+C** stops a source-launched server. `Start Hub.command` is an alternative after setup.
 
-DOCX preview and rendering require LibreOffice. Install it through its official distribution and point `HUB_SOFFICE_BIN` to its `soffice` executable if it is outside your PATH. PDF, Markdown and plain-text imports remain available without a DOCX renderer. The project does not download a renderer automatically.
+Start with **Internships → Settings → Open fixture workspace**. Synthetic candidates, employer forms and receipts stay separate from real applications. Follow the [tour](docs/DEMO.md) before entering personal data.
 
-Private data defaults to `~/Library/Application Support/Automation Hub`, outside the checkout. An absolute `HUB_DATA_DIR` selects a different private directory. The application requires an owned directory with private permissions. See [operation and recovery](docs/OPERATIONS.md).
+**Document rendering.** DOCX preview and rendering require [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/). PDF, Markdown and plain-text imports remain available without it. For the usual macOS installation:
 
-## Use the workspace
+```sh
+export HUB_SOFFICE_BIN="/Applications/LibreOffice.app/Contents/MacOS/soffice"
+```
 
-Home shows actual automation work, current questions and direct Discover, Applications and Résumés destinations. The optional “How this automation works” guide explains the five stages. Inside the internship workspace, a contextual section list becomes a native section picker on phones. Linked n8n workflows show only observed stages and status.
+Set this before starting the app if `soffice` is not on your PATH. The project does not download a renderer automatically.
 
-1. Explore the separate fixture workspace in Internships → Settings before entering real data.
-2. Import finished resumes and selected HTTPS job links. An optional mega resume supplies supporting evidence and cannot be the uploaded base.
-3. Confirm candidate facts and allowed sites, then review documents and any missing answers.
-4. Configure optional connections explicitly. The application starts without a real campaign enabled.
-5. Enable a concrete campaign only after reviewing its inputs and rules. Unknown consent, unsupported forms, account challenges and missing facts remain visible exceptions.
+**Private storage.** Data defaults to `~/Library/Application Support/Automation Hub`, outside the checkout. An absolute `HUB_DATA_DIR` selects another private, user-owned directory. Backups, restore requirements and tool-path configuration are documented in [operation and recovery](docs/OPERATIONS.md).
 
-**Discover US internships:** in Discover, add a public employer board with **Add source**, then choose **Check jobs** to read its openings. Adding the source saves its configuration locally. Browsing and saving need no resume, AI connection, employer account or enabled campaign. Discovery reads supported Greenhouse, Lever and Ashby employer boards. Ashby uses its public Posting API; its applications require manual completion, with no Ashby auto-apply adapter claimed. Feed links can lead to custom application portals; actual employer forms still require verification.
+## Current scope
 
-Discover opens on the **US internships** preset, combining an internship keyword check with employer-supplied US location evidence. **All jobs** shows the broader retained observations, and **Review uncertain locations** keeps unknown or conflicting geography accessible. A board's technical host region does not establish where a job is based.
+This is an early, single-person, macOS-first project. It ships source and a locally buildable Mac shell.
 
-Search and filters apply across the full retained result set, with pages of 40 matching roles. Keyword filters use supplied text and do not establish degree fit or eligibility. Large boards may supply titles and locations without descriptions; the source and role views disclose this reduced coverage. Read the employer posting for full requirements.
-
-The Summer 2027 and Spring 2027 shortcuts search employer text for those words. They do not establish a hiring cycle, dates or eligibility.
-
-![US internship browsing with isolated synthetic data.](docs/images/discovery.png)
-
-US internship browsing with isolated synthetic data.
-
-Posted dates appear only when supplied by the employer. Ashby’s Last published timestamp stays distinct from an original posting date. **Found** records the first local observation, and the detail view keeps the latest successful observation. Partial, stale and failed checks retain previous roles with their dated or unknown status. Saved roles survive a disconnected or unavailable source. Use **Check jobs** when you want a new bounded observation.
-
-| State | Meaning |
+| Area | Supported scope |
 | --- | --- |
-| Saved | A local shortlist bookmark |
-| In application queue | A role explicitly selected for preparation under campaign rules |
-| Confirmed | An application with matching employer evidence in the application ledger |
+| Discovery | Public Greenhouse, Lever and Ashby employer boards; manually requested checks |
+| Application adapters | Bounded Greenhouse and Lever form paths, exercised with local fixtures; employer customizations need separate validation |
+| Ashby applications | Manual completion; discovery support does not imply submission support |
+| Geography and dates | Employer-supplied evidence; ambiguous locations and missing dates remain visible |
+| Documents | Original retention, previews and source-bound prepared packages; LibreOffice required for DOCX rendering |
+| Platforms | macOS; Linux and Windows are not certified |
 
-Needs You opens one exact employer question while retaining other current answer drafts. The Résumés library distinguishes finished originals, supporting evidence and prepared versions. Missing or stale review evidence offers recovery. Connections and workflow linking have one owning Connections page.
+Search and season shortcuts match available employer text. They do not establish eligibility or a hiring cycle. Partial feeds can omit descriptions; stale and failed checks retain earlier observations with their status. Read the full employer posting before deciding.
 
-The application queue has counted work views, multiword role/employer search, stable sorting and pages of 40. Known-deadline sorting leaves missing or uncertain dates below established dates. Opening a search result reveals its exact page. Application review uses the full workspace; Back returns to the same queue, filters, sort and row focus. The phone layout keeps Back, review tabs and actions reachable while long role content scrolls.
+Unsupported controls, account challenges, uncertain consent and missing facts remain manual or require review. Local fixtures do not establish compatibility with every live employer. A prepared file, synthetic receipt or passing test suite does not establish a real submission or hiring outcome.
 
-The inspector's **Overview** shows exact saved questions first, then source, requirements, document and receipt checks. Checks describe retained evidence rather than an invented progress percentage. Candidate attestation, employer requirement text and a matching receipt remain different kinds of evidence.
+## Optional connections
 
-**Posting** compares the source used to prepare a document with the latest retained observation, including literal changed text and separate adapter/content hashes. A changed source is retained before the application is held. Failed preparation cannot make an older document current for a new posting. New packages bind to the exact retained posting and candidate revision; older unbound packages remain previewable and require fresh preparation before approval or use. Choosing a finished original can queue a public posting read and prepare it without model reasoning or campaign enablement.
+The workspace runs without these connections:
 
-![Retained source comparison with isolated synthetic data.](docs/images/posting-comparison.png)
+| Connection | What it adds |
+| --- | --- |
+| Codex CLI | Explicitly enabled résumé reasoning using an existing ChatGPT sign-in, selected model preferences and a saved call limit. API-key and unknown sign-in modes are rejected. Existing account limits and terms apply. |
+| Gmail | Read-only observation with your own Google OAuth Desktop client and consent. The hub does not send Gmail messages. |
+| n8n | Read-only status and metadata for selected workflows. n8n keeps execution and schedule ownership. |
 
-Adding a fresh role to the queue does not itself submit an application. Dispatch follows the enabled campaign rules and required document/question review.
+Employer sessions and optional service secrets belong in the app-owned encrypted vault. Configure only the connections needed for the work you choose.
 
-Unreadable or lost save replies show an unknown outcome and require reconnecting to inspect saved work before retrying. A late completion cannot close a newer editing session or clear its input. Unexpected view failures offer a focused local recovery surface without replaying application actions.
+## How it fits together
 
-Résumé reasoning clarifications are bound to the saved candidate, posting, exact question and usable source corpus. Changed or unbound earlier answers need renewed review; they are not silently reused. Saved deadlines remain dated evidence. A changed source labels its earlier deadline and holds document use until the source is reviewed.
+![A private browser or Mac shell connects to a loopback Node service and local SQLite ledger. The service explicitly reads public employer boards and uses bounded employer-form adapters after campaign and review checks.](docs/media/architecture.svg)
 
-Original documents remain available. Edited documents and written answers require the appropriate exact-content review. The app tracks prepared, dispatched, uncertain and confirmed states separately; uncertain external effects cannot be blindly retried.
+React supplies the review workspace. A loopback Node.js service owns sessions, the SQLite ledger, retained documents and fixed preparation/application methods. Playwright handles supported browser paths. The optional Swift/WebKit shell opens the same local workspace.
 
-Needs You retains unsaved answer text and choices as you move between views during the open UI session, while their workspace, question, posting, profile and document context still match. Context changes invalidate that draft binding, and switching between real and fixture workspaces clears the cache. Reloading closes this temporary memory; explicitly save answers and review the exact writing before relying on them.
+State and review checks live in the service. A model cannot direct a general-purpose tool executor. Dispatch intent is recorded before an external action; unresolved external outcomes remain held for reconciliation.
 
-The browser adapter handles native controls and a narrow observed Greenhouse static single-choice widget. A custom choice must expose its exact question, owning form, unique owned listbox, enabled options and selected readback. Unknown wrappers, interactive option elements, search/geocoder, asynchronous, creatable and multichoice controls remain manual. Local fixtures do not establish live compatibility with every employer form.
+| Code | Responsibility |
+| --- | --- |
+| [`web/`](web/) | Workspace, discovery, application review and document previews |
+| [`server/`](server/) | Local API, durable ledger, documents, adapters and action checks |
+| [`native/`](native/) | Mac shell, launch recovery and completed-download saving |
+| [`tests/`](tests/) | Isolated service, document, employer-form and browser fixtures |
 
-Optional reasoning uses an existing Codex CLI ChatGPT sign-in and your selected model preferences. It must be explicitly enabled and has a saved call limit. This adapter rejects API-key and unknown sign-in modes. No key is included in this repository. Existing account limits and terms still apply. You can select finished resumes manually without enabling reasoning.
+Read the [architecture](docs/ARCHITECTURE.md) for source bindings, transaction boundaries and recovery behavior.
 
-Optional Gmail observation uses your own Google OAuth Desktop client with read-only consent. Employer accounts and optional service secrets belong in the app-owned encrypted vault. The hub does not send Gmail messages. Optional n8n observation reads selected workflow metadata; it does not activate or execute workflows. Connection setup stays local and is never needed for the test suite.
+## Verify a change
 
-## Check a change
-
-On macOS, install Xcode command-line tools and LibreOffice, then run:
+Install Xcode command-line tools and LibreOffice on macOS, complete the source setup above, then run:
 
 ```sh
 export HUB_SOFFICE_BIN="/Applications/LibreOffice.app/Contents/MacOS/soffice"
 npm run check
 ```
 
-Checks use synthetic candidate, employer, mailbox and provider fixtures. They include Node tests, a production build and Chromium/Firefox UI tests. Native filesystem checks compile Swift on macOS. The CI workflow uses a macOS runner without paid model APIs or real accounts. CI results, local checks and real employer acceptance are separate evidence.
+The check runs Node service tests, a production build and Chromium/Firefox UI tests. Native filesystem checks compile Swift on macOS. Synthetic candidates, employer pages, mailboxes and provider responses keep the suite independent of real accounts and paid model calls. [GitHub Actions](https://github.com/nazeeh111/automation-hub/actions/workflows/check.yml) runs fixture checks on macOS.
 
-Linux and Windows are not certified platforms. The native shell and packaging are macOS-only.
+## Use the Mac shell
 
-## Build the Mac shell
+After a production build:
 
-After `npm run build`, `npm run app:build` builds an app for the current Mac architecture into `~/Applications/Automation Hub.app`. `npm run app:open` opens it. The build needs Xcode command-line tools and a self-contained official Node.js binary distribution. Node's complete LICENSE must be at the distribution root above `bin/node`, or set `HUB_NODE_LICENSE` to its absolute regular file path. The build checks and captures that file before creating app outputs; it never downloads or substitutes a license. Custom Node installations that depend on external libraries are not supported for a portable native bundle.
+```sh
+npm run app:build
+npm run app:open
+```
 
-The app is locally ad-hoc signed, not notarized. It bundles Node and production dependencies; browser binaries, LibreOffice and optional Codex remain external local tools. This repository distributes source, without prebuilt native binaries.
+This creates `~/Applications/Automation Hub.app` for the current Mac architecture. The build requires Xcode command-line tools and a self-contained official Node.js distribution with its complete root `LICENSE`; `HUB_NODE_LICENSE` can point to that regular file. The app is locally ad-hoc signed and is not notarized. No prebuilt binaries are published. Browser engines, LibreOffice and optional Codex stay external.
 
-Closing or quitting the native window leaves its user-started background worker running. Pause or stop campaigns in the workspace when needed. It does not install a login item or system daemon. Build receipts and generated machine paths are local outputs and must not be committed.
+Closing the native window or choosing **Quit** leaves its user-started worker running. Use campaign **Pause/Stop** to change application work. For maintenance, use **Automation Hub → Shut Down Background Worker…** or `npm run service:stop` with the same data directory. No login item or system daemon is installed. Follow the [shutdown and restore instructions](docs/OPERATIONS.md) before restoring private data.
 
-The native opening panel waits for both the current primary navigation and the current React workspace commit. If that display does not become ready or its process stops, the app shows recovery with **Reconnect** and **Open in Browser**. Reconnect is explicit and reopens saved progress; the display timeout does not reload the page or replay application actions automatically. These display signals do not certify backend connections or application success.
+## Contribute
 
-## Pause, quit and shut down
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and reporting guidance, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
-Campaign **Pause/Stop** changes application work. Native **Quit** closes the window and leaves its worker running. For maintenance, choose **Automation Hub → Shut Down Background Worker…** and confirm. The app reports verified shutdown only after the identified process exits and its private control entries are gone. Reconnect is explicit; stopping the display never replays a submission.
-
-Source users can run `npm run service:stop` with the same absolute `HUB_DATA_DIR`. This command never starts a worker, signals a process or removes unknown control files. A refusal or timeout is not proof that restoration is safe. See [complete recovery instructions](docs/OPERATIONS.md).
-
-Explicit `HUB_CODEX_BIN`, `HUB_SOFFICE_BIN` and `PLAYWRIGHT_BROWSERS_PATH` values take precedence over captured configuration. Native builds retain these local paths for launches without a shell environment. Invalid explicit settings do not silently select another tool. Optional tools are checked when used; browsing does not require every connection.
-
-## Project map
-
-| Path | Purpose |
-| --- | --- |
-| `web/` | React interface and workspace state |
-| `server/` | Local API, durable state, document and application services |
-| `native/` | macOS window, previews and completed-download saving |
-| `scripts/` | Launch, build and dependency-notice helpers |
-| `tests/` | Synthetic service, document, browser and native fixtures |
-
-See [architecture](docs/ARCHITECTURE.md), [contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md). Original project code is under the [MIT license](LICENSE). Dependencies retain their own licenses; the build generates third-party notices from their installed license files. No upstream application runtime or research corpus is distributed here.
-
-[Research and design decisions](docs/PRODUCT_DECISIONS.md) explain the implemented patterns and remaining coverage limits.
+Original project code is [MIT licensed](LICENSE). Dependencies retain their own licenses; builds generate third-party notices from installed license files. No upstream application runtime or research corpus is distributed here.

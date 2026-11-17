@@ -1,3 +1,4 @@
+import {navigateTo} from './navigation-helper.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdtemp,mkdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -35,8 +36,8 @@ async function exactPackage(page){
 
 test('first run imports selected links and finished originals before reviewing campaign rules',async({page},testInfo)=>{
  const store=hub.context(false).store;
- await page.getByRole('button',{name:'Browse US internships',exact:true}).click();await expect(page.getByRole('tab',{name:'Discover',exact:true})).toHaveAttribute('aria-selected','true');
- await page.getByRole('button',{name:'Home',exact:true}).click();await page.getByRole('button',{name:'Add selected links',exact:true}).click();
+ await page.locator('.home-next-actions').getByRole('button',{name:'Browse US internships',exact:true}).click();await expect(page.getByRole('tab',{name:'Discover',exact:true})).toHaveAttribute('aria-selected','true');
+ await navigateTo(page,'Home');await page.getByRole('button',{name:'Add selected links',exact:true}).click();
  const importedUrl='https://job-boards.greenhouse.io/journeyfixture/jobs/123456';
  await page.getByLabel('Job links or CSV',{exact:true}).fill(importedUrl);await page.getByRole('button',{name:'Import jobs',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'1 imported'})).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page.getByRole('button',{name:'Add finished résumés',exact:true})).toBeVisible();await page.getByRole('button',{name:'Add finished résumés',exact:true}).click();
@@ -62,7 +63,7 @@ test('Home question opens its exact review and keeps other questions intact',asy
 
 test('exact retained resume is previewed and approved for only its matching application',async({page},testInfo)=>{
  const {store,job,pkg}=await exactPackage(page);
- await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'journey-review');const card=page.locator('[data-attention-id="journey-review"]');
+ await navigateTo(page,'Needs You');await chooseQuestion(page,'journey-review');const card=page.locator('[data-attention-id="journey-review"]');
  await expect(card.getByRole('radio')).toHaveCount(0);await expect(card.getByRole('button',{name:'Approve this version',exact:true})).toBeEnabled();
  await card.getByRole('button',{name:'Review résumé',exact:true}).click();await expect(card.locator('.pdf-preview')).toHaveAttribute('data-rendered','true',{timeout:15000});
  await expect(card.getByRole('link',{name:'Open retained file',exact:true})).toHaveAttribute('href',`/api/files/${encodeURIComponent(pkg.id)}?variant=final`);
@@ -71,7 +72,7 @@ test('exact retained resume is previewed and approved for only its matching appl
 });
 
 test('missing or older document evidence offers recovery instead of an unusable approval',async({page},testInfo)=>{
- const {store,job,pkg}=await exactPackage(page);await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'journey-review');const card=page.locator('[data-attention-id="journey-review"]');
+ const {store,job,pkg}=await exactPackage(page);await navigateTo(page,'Needs You');await chooseQuestion(page,'journey-review');const card=page.locator('[data-attention-id="journey-review"]');
  const scenarios=[['missing-binding',undefined,/does not identify an exact retained version/],['missing-file',{packageId:'journey-missing-package'},/requested by this review is missing/],['old-version',{packageId:pkg.id,hash:'older-synthetic-hash'},/refers to an older version/]];
  for(const [name,details,message] of scenarios){store.put('decision',{...store.get('decision','journey-review'),details});await refresh(page);await expect(card.getByText(message)).toBeVisible();await expect(card.getByRole('radio')).toHaveCount(0);await expect(card.getByRole('button',{name:'Approve this version',exact:true})).toHaveCount(0);await expect(card.getByRole('button',{name:'Open current application',exact:true})).toBeVisible();await shot(page,testInfo,`recovery-${name}`);}
  store.put('decision',{...store.get('decision','journey-review'),details:{packageId:pkg.id,hash:pkg.hash}});store.put('package',{...pkg,approved:false,profileRevision:undefined});await refresh(page);await expect(card.getByText(/missing its candidate profile version/)).toBeVisible();await expect(card.getByRole('button',{name:'Approve this version',exact:true})).toHaveCount(0);store.put('package',{...pkg,approved:false});
@@ -81,12 +82,12 @@ test('missing or older document evidence offers recovery instead of an unusable 
  await page.getByRole('combobox',{name:'Use a finished resume for this application',exact:true}).selectOption(store.list('resume')[0].id);await expect.poll(()=>store.get('job',job.id).packageId).not.toBe(pkg.id);const replacementId=store.get('job',job.id).packageId;
  await expect(page.getByRole('button',{name:'Approve this document',exact:true})).toBeEnabled();expect(store.get('decision','journey-review').state).toBe('superseded');await shot(page,testInfo,'recovery-replacement-prepared');
  await page.getByRole('button',{name:'Approve this document',exact:true}).click();await expect.poll(()=>store.get('package',replacementId).approved).toBe(true);expect(store.get('package',pkg.id).approved).toBe(false);expect(store.get('job',job.id).state).toBe('ready');expect(store.list('decision').filter(decision=>decision.jobId===job.id&&decision.state==='open')).toHaveLength(0);expect(store.get('campaign','main').enabled).toBe(false);
- await page.keyboard.press('Escape');await page.getByRole('button',{name:'Needs You',exact:true}).click();await expect(page.locator('.decision-card')).toHaveCount(0);await shot(page,testInfo,'recovery-replacement-approved');
+ await page.keyboard.press('Escape');await navigateTo(page,'Needs You');await expect(page.locator('.decision-card')).toHaveCount(0);await shot(page,testInfo,'recovery-replacement-approved');
 });
 
 test('a missing current version recovers through a finished original and exact replacement approval',async({page},testInfo)=>{
  const {store,job,pkg}=await exactPackage(page);
- store.put('job',{...store.get('job',job.id),packageId:'missing-current-journey-version'});store.put('decision',{...store.get('decision','journey-review'),details:{packageId:'missing-current-journey-version',hash:'missing-journey-hash'}});await refresh(page);await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'journey-review');
+ store.put('job',{...store.get('job',job.id),packageId:'missing-current-journey-version'});store.put('decision',{...store.get('decision','journey-review'),details:{packageId:'missing-current-journey-version',hash:'missing-journey-hash'}});await refresh(page);await navigateTo(page,'Needs You');await chooseQuestion(page,'journey-review');
  await page.getByRole('button',{name:'Open current application',exact:true}).click();const inspector=page.locator('.application-inspector');await expect(inspector.getByRole('tab',{name:'Document',exact:true})).toHaveAttribute('aria-selected','true');await expect(inspector.getByRole('heading',{name:'No document prepared',exact:true})).toBeVisible();
  await inspector.getByRole('combobox',{name:'Select a finished resume for review',exact:true}).selectOption(store.list('resume')[0].id);await expect.poll(()=>store.get('job',job.id).packageId).not.toBe('missing-current-journey-version');const replacementId=store.get('job',job.id).packageId;expect(replacementId).not.toBe(pkg.id);await expect(inspector.getByRole('button',{name:'Approve this document',exact:true})).toBeEnabled();await inspector.getByRole('button',{name:'Approve this document',exact:true}).click();await expect.poll(()=>store.get('package',replacementId).approved).toBe(true);expect(store.get('package',pkg.id).approved).toBe(false);expect(store.get('decision','journey-review').state).toBe('superseded');expect(store.get('job',job.id).state).toBe('ready');expect(store.list('decision').filter(decision=>decision.jobId===job.id&&decision.state==='open')).toHaveLength(0);expect(store.get('campaign','main').enabled).toBe(false);await shot(page,testInfo,'missing-current-version-recovered');
 });

@@ -1,4 +1,5 @@
 import React,{useEffect,useLayoutEffect,useId,useMemo,useRef,useState} from 'react';
+import './quick-open.css';
 
 const normalized=value=>String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
 

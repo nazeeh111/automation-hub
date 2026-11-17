@@ -1,3 +1,4 @@
+import {navigateTo,workspaceSection} from './navigation-helper.mjs';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -31,13 +32,13 @@ test.beforeEach(async ({ page }) => {
 });
 test.afterEach(async ({page}) => { await page.close(); await hub?.close(); await rm(directory, { recursive: true, force: true });expect(pageErrors).toEqual([]); });
 
-async function clickWorkspace(page) { await page.getByRole('button', { name: 'Home', exact: true }).click(); await page.getByRole('button', { name: 'Go to Applications', exact: true }).click(); }
+async function clickWorkspace(page) { await navigateTo(page,'Home'); await page.getByRole('button', { name: 'Go to Applications', exact: true }).click(); }
 
-async function section(page,id){const picker=page.getByLabel('Internship section',{exact:true});if(await picker.isVisible())await picker.selectOption(id);else await page.locator(`#workspace-tab-${id}`).click();}
+const section=workspaceSection;
 async function chooseQuestion(page,id){const button=page.getByRole('navigation',{name:'Choose a saved question',exact:true}).locator(`[data-question-id=${JSON.stringify(id)}]`);if(!await button.isVisible()&&await page.getByRole('button',{name:'All saved questions',exact:true}).isVisible())await page.getByRole('button',{name:'All saved questions',exact:true}).click();await button.click();await expect(page.locator(`[data-attention-id=${JSON.stringify(id)}]`)).toBeVisible();}
 async function openGuide(page){const guide=page.locator('.home-workflow-guide');if(!await guide.evaluate(element=>element.open))await guide.locator('summary').click();}
 
-async function connections(page) {await page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name:'Automations',exact:true}).click();await page.getByRole('button',{name:'Connections',exact:true}).click();}
+async function connections(page) {await navigateTo(page,'Automations');await page.getByRole('button',{name:'Connections',exact:true}).click();}
 async function state(page) { return (await page.request.get(`${hub.baseUrl}/api/state`)).json(); }
 async function snapshot(page,testInfo,name){
  const dismiss=page.getByRole('button',{name:'Dismiss notification',exact:true});if(await dismiss.count())await dismiss.click();
@@ -67,7 +68,7 @@ test('linked DOCX resources hold previews while preserving the exact original', 
 
 test('imports, profile, rules, model opt-in and workflow linking use real persisted API', async ({ page }) => {
   await clickWorkspace(page);
-  const applicationTab=page.getByRole('tab',{name:/Applications/});await applicationTab.focus();await page.keyboard.press('ArrowRight');await expect(page.getByRole('tab',{name:/Resumes/})).toBeFocused();await expect(page.locator('#workspace-panel')).toHaveAttribute('aria-labelledby','workspace-tab-resumes');
+  const applicationTab=page.getByRole('tab',{name:/Applications/});await applicationTab.focus();await page.keyboard.press('ArrowRight');await expect(page.locator('#workspace-tab-resumes')).toBeFocused();await expect(page.locator('#workspace-panel')).toHaveAttribute('aria-labelledby','workspace-tab-resumes');
   await section(page,'resumes');
   await page.getByRole('button', { name: 'Import resumes', exact: true }).first().click();
   await page.locator('dialog input[type=file]').setInputFiles({ name: 'Fixture candidate.md', mimeType: 'text/markdown', buffer: Buffer.from('# Candidate Example\n\n## Projects\n- Built a simulated sensor prototype using Python for 12 controlled tests.\n\n## Skills\nPython, signal processing') });
@@ -107,7 +108,7 @@ test('imports, profile, rules, model opt-in and workflow linking use real persis
     await expect.poll(async () => (await state(page)).readiness.find(x => x.id === 'model').status).toBe('ready');
     await page.getByRole('button', { name: 'Done', exact: true }).click();
   }
-  await page.getByRole('navigation',{name:'Main navigation'}).getByRole('button', { name: 'Automations', exact: true }).click();
+  await navigateTo(page,'Automations');
   await page.getByRole('button', { name: 'Link an n8n workflow', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill('Existing test workflow');
   await page.getByLabel('Existing n8n workflow URL', { exact: true }).fill('http://localhost:5678/workflow/test-workflow');
@@ -128,7 +129,7 @@ test('isolated fixture campaign confirms only fixture receipts and resolves a pa
   await page.getByRole('button', { name: 'Enable campaign', exact: true }).last().click();
   await expect.poll(async () => (await state(page)).summary.fixtureConfirmed, { timeout: 30_000 }).toBe(1);
   await expect.poll(async () => (await state(page)).decisions.filter(d=>d.code==='form_questions'&&d.state==='open').length, {timeout:30_000}).toBe(1);
-  await page.getByRole('button', { name: /Needs You/, exact: false }).first().click();
+  await navigateTo(page,'Needs You');
   await chooseQuestion(page,(await state(page)).decisions.find(d=>d.code==='form_questions'&&d.state==='open').id);
   await expect(page.getByRole('heading', { name: /A synthetic employer asks/ })).toBeVisible();
   await page.getByLabel('When can you start?', { exact: false }).fill('June 2027');
@@ -195,8 +196,8 @@ test('populated campaign desk, ledger inspector and long account holds remain re
   await expect.poll(async()=>{const s=await state(page);return s.summary.fixtureConfirmed>=1&&s.decisions.some(d=>d.code==='form_questions'&&d.state==='open');},{timeout:30_000}).toBe(true);
   await page.request.post(`${hub.baseUrl}/api/action`,{headers:{Origin:hub.baseUrl},data:{action:'pause'}});
   await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();
-  await page.getByRole('button',{name:'Home',exact:true}).click();
-  await openGuide(page);await expect(page.locator('.home-work-summary')).toContainText('5 selected roles');await expect(page.locator('.home-work-summary')).toContainText(`${(await state(page)).summary.fixtureConfirmed} fixture receipts`);await expect(page.locator('.home-process-exceptions')).toContainText('Needs You');
+  await navigateTo(page,'Home');
+  await openGuide(page);await expect(page.locator('.home-work-summary>div').filter({hasText:'Selected roles'}).getByRole('button')).toHaveText('5');await expect(page.locator('.home-work-summary>div').filter({hasText:'Fixture receipts'}).getByRole('button')).toHaveText(String((await state(page)).summary.fixtureConfirmed));await expect(page.locator('.home-process-exceptions')).toContainText('Needs You');
   await snapshot(page,testInfo,'populated-home-desktop.png');
   await clickWorkspace(page);await section(page,'resumes');await expect(page.locator('.document-dossier .pdf-preview')).toHaveAttribute('data-rendered','true',{timeout:15_000});await section(page,'applications');
   await page.getByRole('button',{name:/Engineering intern Example Labs/}).click();
@@ -228,7 +229,7 @@ test('populated campaign desk, ledger inspector and long account holds remain re
   await page.keyboard.press('Escape');
   ctx.store.put('account',{id:'long-fixture-account',tenant:'example-employer-with-a-very-long-tenant-name.wd1.myworkdaysite.com/recruiting/long-company/careers',email:'alex@example.invalid',state:'awaiting_email_verification',nextAction:'Complete the scoped email verification request'});
   await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();
-  await page.getByRole('button',{name:/Needs You/}).first().click();
+  await navigateTo(page,'Needs You');
   await expect(page.getByText('example-employer-with-a-very-long-tenant-name.wd1.myworkdaysite.com/recruiting/long-company/careers',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await snapshot(page,testInfo,'populated-needs-mobile.png');
@@ -294,9 +295,9 @@ test('private connection forms save exact scope without exposing secret inputs',
 test('ordinary employer verification uses the dedicated ephemeral input',async({page})=>{
   const ctx=hub.context(false);ctx.store.put('verification_request',{id:'fixture-verification',accountId:'fixture-account',tenant:'careers.fixture.example',recipient:'candidate@example.invalid',purpose:'signup',allowedHosts:['careers.fixture.example'],state:'pending',createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+300_000).toISOString()});
   await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();
-  await page.getByRole('button',{name:/Needs You/}).first().click();
+  await navigateTo(page,'Needs You');
   await chooseQuestion(page,'verify-fixture-verification');await page.setViewportSize({width:320,height:780});
-  const verificationAction=page.getByRole('button',{name:'Continue this verification request',exact:true});const actionBox=await verificationAction.boundingBox(),cardBox=await page.locator('.verification-card').boundingBox();expect(actionBox.x+actionBox.width).toBeLessThanOrEqual(cardBox.x+cardBox.width-15);expect(actionBox.height).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR);
+  const verificationAction=page.getByRole('button',{name:'Continue this verification request',exact:true});const actionBox=await verificationAction.boundingBox(),cardBox=await page.locator('.verification-card').boundingBox(),padding=await page.locator('.verification-card').evaluate(element=>({left:parseFloat(getComputedStyle(element).paddingLeft),right:parseFloat(getComputedStyle(element).paddingRight)}));expect(actionBox.x).toBeGreaterThanOrEqual(cardBox.x+padding.left);expect(actionBox.x+actionBox.width).toBeLessThanOrEqual(cardBox.x+cardBox.width-padding.right);expect(actionBox.height).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR);
   await page.getByLabel('Email verification code',{exact:true}).fill('482913');
   await page.getByRole('button',{name:'Continue this verification request',exact:true}).click();
   await expect(page.getByLabel('Email verification code',{exact:true})).toHaveValue('');
@@ -312,7 +313,7 @@ test('a declined employer consent can be reconsidered with an explicit Boolean c
  ctx.store.put('account',{id:'fixture-consent-account',tenant:'careers.fixture.example',candidateId:'main',email:'candidate@example.invalid',state:'needs_consent'});
  ctx.store.put('decision',{id:'fixture-consent-decision',jobId:'fixture-consent-job',code:'account_consent_declined',state:'open',title:'Reconsider the exact employer consent',details:{accountId:'fixture-consent-account',questions:[{label:'I agree to the fixture employer application terms',kind:'consent',consentHash:'fixture-consent-hash'}]}});
  await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();
- await page.getByRole('button',{name:/Needs You/}).first().click();
+ await navigateTo(page,'Needs You');
  await page.getByLabel('I agree to the fixture employer application terms',{exact:true}).selectOption('true');
  await page.getByRole('button',{name:'Save answer',exact:true}).click();
  await expect.poll(async()=>(await state(page)).decisions.find(d=>d.id==='fixture-consent-decision')?.state).toBe('resolved');
@@ -335,7 +336,7 @@ test('local waiting review prioritizes saved deadlines without losing unsaved re
  const terminal=addJob('terminal',stamp(-3*day),{state:'submitted'}),shared=addJob('shared',stamp(6*3600000));
  addDecision('Review shared access',null,{jobIds:[terminal.id,shared.id]});
  const decisionBytes=ctx.store.list('decision').map(d=>JSON.stringify(d)),jobBytes=ctx.store.list('job').map(j=>JSON.stringify(j));
- await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await page.getByRole('button',{name:'Needs You',exact:true}).click();
+ await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await navigateTo(page,'Needs You');
  await chooseQuestion(page,'Review written answer');
  const answer=page.getByRole('textbox',{name:WRITING_LABEL,exact:true}),own='I built and evaluated a simulated sensor prototype using twelve controlled test cases.';
  await answer.fill(own);await page.getByRole('combobox',{name:'Preferred start month',exact:true}).selectOption({label:'July 2027'});
@@ -349,13 +350,13 @@ test('local waiting review prioritizes saved deadlines without losing unsaved re
  const passed=page.locator('.decision-card').filter({has:page.getByRole('heading',{name:'Review passed deadline',exact:true})});await expect(passed).toContainText('The employer portal has not been rechecked.');await expect(passed).toContainText('this computer’s clock');await expect(passed.locator('time')).toHaveAttribute('dateTime',stamp(-3600000));
  const disclosure=passed.locator('.attention-details'),toggle=disclosure.locator('summary');await expect(passed.locator('.attention-source')).not.toBeVisible();await toggle.focus();await page.keyboard.press('Enter');await expect(passed.locator('.attention-source')).toBeVisible();await expect(disclosure).toHaveAttribute('open','');expect((await disclosure.textContent()).match(/The employer portal has not been rechecked\./g)).toHaveLength(1);await passed.screenshot({path:testInfo.outputPath('waiting-details-desktop.png')});await toggle.click();await expect(passed.locator('.attention-source')).not.toBeVisible();await toggle.click();await expect(passed.locator('.attention-source')).toBeVisible();await toggle.click();await expect(passed.locator('.attention-source')).not.toBeVisible();
  await page.setViewportSize({width:1440,height:1050});await snapshot(page,testInfo,'waiting-needs-desktop.png');await page.setViewportSize({width:320,height:844});const summaryBox=await toggle.boundingBox();expect(summaryBox.height).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await snapshot(page,testInfo,'waiting-needs-mobile320.png');
- await page.getByRole('button',{name:'Home',exact:true}).click();const home=page.locator('.home-question-list > button');await expect(home).toHaveCount(3);const priority=page.locator('.home-priority');await expect(priority).toContainText('Review passed deadline');const titles=await home.locator('> span:first-child > strong').allTextContents();expect(titles.slice(0,2)).toEqual(['Review shared access','Review written answer']);await expect(priority.locator('time')).toHaveAttribute('dateTime',stamp(-3600000));await expect(page.locator('.home-recent').getByText('Waiting question needs review',{exact:true})).toHaveCount(3);await expect(page.locator('.home-recent')).not.toContainText('Automation hub');await expect(page.locator('.home-recent')).toContainText('Synthetic');
+ await navigateTo(page,'Home');const home=page.locator('.home-question-list > button');await expect(home).toHaveCount(3);const priority=page.locator('.home-priority');await expect(priority).toContainText('Review passed deadline');const titles=await home.locator('.home-question-copy > strong').allTextContents();expect(titles.slice(0,2)).toEqual(['Review shared access','Review written answer']);await expect(priority.locator('time')).toHaveAttribute('dateTime',stamp(-3600000));await expect(page.locator('.home-recent').getByText('Waiting question needs review',{exact:true})).toHaveCount(3);await expect(page.locator('.home-recent')).not.toContainText('Automation hub');await expect(page.locator('.home-recent')).toContainText('Synthetic');
  await snapshot(page,testInfo,'waiting-home-mobile320.png');await page.setViewportSize({width:1440,height:1050});await snapshot(page,testInfo,'waiting-home-desktop.png');
  for(const [id,minutes] of [['short',5],['later',10],['expired',-1]])ctx.store.put('verification_request',{id:`waiting-${id}`,accountId:`fixture-${id}`,tenant:`careers.${id}.fixture.example`,recipient:'candidate@example.invalid',purpose:'signup',state:'pending',createdAt:stamp(-60000),expiresAt:stamp(minutes*60000)});
  await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();const requests=(await state(page)).verificationRequests;expect(requests.map(r=>r.id).sort()).toEqual(['waiting-later','waiting-short']);
  await expect(priority).toContainText('Verify employer email for careers.short.fixture.example');await expect(home.first()).toContainText('Verify employer email for careers.later.fixture.example');await expect(home.nth(1)).toContainText('Review passed deadline');await expect(priority.locator('time')).toHaveAttribute('dateTime',stamp(5*60000));await expect(page.getByText(/careers\.expired\.fixture\.example/)).toHaveCount(0);
  await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await snapshot(page,testInfo,'waiting-verification-home-mobile320.png');
- await page.getByRole('button',{name:'Needs You',exact:true}).click();await expect(page.locator('.verification-card')).toHaveCount(2);await expect(page.getByText('careers.expired.fixture.example',{exact:true})).toHaveCount(0);
+ await navigateTo(page,'Needs You');await expect(page.locator('.verification-card')).toHaveCount(2);await expect(page.getByText('careers.expired.fixture.example',{exact:true})).toHaveCount(0);
 });
 async function decisionFixture(page,{prohibited=false,questions,requirements=false}={}) {
  await page.request.post(`${hub.baseUrl}/api/demo`,{headers:{Origin:hub.baseUrl},data:{enabled:true}});
@@ -369,7 +370,7 @@ async function decisionFixture(page,{prohibited=false,questions,requirements=fal
  let details={questions:qs},code='form_questions';
  if(requirements){const report=assessRequirements({job,profile:ctx.store.get('profile','main'),pkg});ctx.store.put('job',{...job,requirementLedger:report.entries});details={requirements:report.unresolvedMandatory,totalMandatoryPending:report.unresolvedMandatory.length,remainingAfterBatch:0};code='eligibility_review';}
  ctx.store.put('decision',{id:'writing-ui-decision',jobId:job.id,code,type:code,state:'open',title:requirements?'Review mandatory requirements':'Review the employer answers',details});
- await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');
+ await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');
  return {ctx,job,pkg,questions:qs};
 }
 
@@ -431,9 +432,9 @@ No real academic record.`)});
  const preview=page.getByRole('link',{name:'Preview retained document',exact:true});const response=await page.request.get(new URL(await preview.getAttribute('href'),hub.baseUrl).href);expect(response.status()).toBe(200);expect(response.headers()['content-type']).toBe('application/pdf');
  const download=await page.request.get(new URL(await page.getByRole('link',{name:'Download exact original',exact:true}).getAttribute('href'),hub.baseUrl).href);expect((await download.body()).toString()).toContain('No real academic record.');
  await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await snapshot(page,testInfo,'supporting-mobile320.png');
- await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');await page.getByRole('button',{name:'Use this reviewed file',exact:true}).click();await page.getByRole('textbox',{name:'Start date',exact:true}).fill('June 2027');
+ await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');await page.getByRole('button',{name:'Use this reviewed file',exact:true}).click();await page.getByRole('textbox',{name:'Start date',exact:true}).fill('June 2027');
  await page.getByRole('button',{name:'Save answer',exact:true}).click();await expect.poll(()=>ctx.store.get('decision','writing-ui-decision').state).toBe('resolved');expect(ctx.store.get('job',job.id).answers['Academic transcript'].documentId).toMatch(/^supporting-/);
- const previous=ctx.store.get('decision','writing-ui-decision');const changed={...fileQuestion,multiple:true};changed.questionHash=supportingControlFingerprint(changed);ctx.store.put('decision',{...previous,state:'open',details:{questions:[changed]}});ctx.store.put('job',{...ctx.store.get('job',job.id),state:'needs_you'});await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Previous supporting file',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this reviewed file',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Save answer',exact:true})).toBeDisabled();
+ const previous=ctx.store.get('decision','writing-ui-decision');const changed={...fileQuestion,multiple:true};changed.questionHash=supportingControlFingerprint(changed);ctx.store.put('decision',{...previous,state:'open',details:{questions:[changed]}});ctx.store.put('job',{...ctx.store.get('job',job.id),state:'needs_you'});await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Previous supporting file',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this reviewed file',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Save answer',exact:true})).toBeDisabled();
 });
 
 
@@ -443,9 +444,9 @@ test('late writing drafts preserve edits and persisted drafts require an explici
  await page.getByText('Draft with assistance',{exact:true}).click();await page.getByRole('checkbox',{name:`Employer allows assistance for ${WRITING_LABEL}`,exact:true}).check();await page.getByRole('button',{name:'Draft from my evidence',exact:true}).click();await started;
  const answer=page.getByRole('textbox',{name:WRITING_LABEL,exact:true});const own='I measured 12 test cases in a controlled simulation.';await answer.fill(own);releaseDraft();
  await expect(page.getByText('Your answer changed while the draft was being prepared. Your current text has been kept.',{exact:true})).toBeVisible();await expect(answer).toHaveValue(own);await expect(page.getByRole('checkbox',{name:`Approve exact answer for ${WRITING_LABEL}`,exact:true})).not.toBeChecked();
- await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Draft for your review',{exact:true})).toBeVisible();await expect(answer).not.toHaveValue('Built a simulated sensor prototype in Python to evaluate signal quality.');
+ await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Draft for your review',{exact:true})).toBeVisible();await expect(answer).not.toHaveValue('Built a simulated sensor prototype in Python to evaluate signal quality.');
  await page.getByRole('button',{name:'Use this draft',exact:true}).click();await expect(answer).toHaveValue('Built a simulated sensor prototype in Python to evaluate signal quality.');
- ctx.store.put('job',{...ctx.store.get('job',job.id),posting:{...job.posting,sourceHash:'synthetic-new-posting'}});await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Previous draft',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this draft',exact:true})).toHaveCount(0);
+ ctx.store.put('job',{...ctx.store.get('job',job.id),posting:{...job.posting,sourceHash:'synthetic-new-posting'}});await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Previous draft',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this draft',exact:true})).toHaveCount(0);
 });
 
 test('native employer choices preserve exact labels and optional blank without invented options',async({page},testInfo)=>{
@@ -465,7 +466,7 @@ test('a committed draft arriving after posting or native question change cannot 
   await page.route('**/api/action',intercept);
   await page.getByText('Draft with assistance',{exact:true}).click();await page.getByRole('checkbox',{name:`Employer allows assistance for ${WRITING_LABEL}`,exact:true}).check();await page.getByRole('button',{name:'Draft from my evidence',exact:true}).click();
   await expect(page.getByText('Previous draft',{exact:true})).toBeVisible();await expect(answer).toHaveValue(before);await expect(page.getByRole('button',{name:'Use this draft',exact:true})).toHaveCount(0);await expect(page.getByRole('checkbox',{name:`Approve exact answer for ${WRITING_LABEL}`,exact:true})).not.toBeChecked();
-  await page.unroute('**/api/action',intercept);await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Previous draft',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this draft',exact:true})).toHaveCount(0);
+  await page.unroute('**/api/action',intercept);await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');await expect(page.getByText('Previous draft',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this draft',exact:true})).toHaveCount(0);
  }
 });
 
@@ -489,18 +490,18 @@ test('optional n8n observer saves privately and distinguishes observed, stale, u
  await connections(page);await page.getByText('Connect read-only n8n status',{exact:true}).click();
  await expect(page.getByRole('button',{name:'Save read-only connection',exact:true})).toBeDisabled();await expect(page.getByLabel('n8n API key',{exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'Open vault settings',exact:true}).click();const phrase='synthetic n8n vault passphrase';await page.getByLabel('Create vault passphrase',{exact:true}).fill(phrase);await page.getByLabel('Confirm vault passphrase',{exact:true}).fill(phrase);await page.getByRole('button',{name:'Create vault',exact:true}).click();await expect.poll(async()=>(await state(page)).vault.unlocked).toBe(true);
- await page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name:'Automations',exact:true}).click();await page.getByRole('button',{name:'Link an n8n workflow',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Synthetic n8n workflow');await page.getByLabel('Existing n8n workflow URL',{exact:true}).fill('https://n8n.example.invalid/workflow/fixtureWorkflow');await page.getByRole('button',{name:'Connect workflow',exact:true}).last().click();
+ await navigateTo(page,'Automations');await page.getByRole('button',{name:'Link an n8n workflow',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Synthetic n8n workflow');await page.getByLabel('Existing n8n workflow URL',{exact:true}).fill('https://n8n.example.invalid/workflow/fixtureWorkflow');await page.getByRole('button',{name:'Connect workflow',exact:true}).last().click();
  const workflow=page.locator('.external-workflow');await expect(workflow.getByText('Not observed',{exact:true})).toBeVisible();await expect(workflow.getByRole('button',{name:'Refresh status',exact:true})).toBeDisabled();
  await connections(page);await page.getByText('Connect read-only n8n status',{exact:true}).click();const key='synthetic-n8n-key-only';await page.getByLabel('n8n instance URL',{exact:true}).fill('https://n8n.example.invalid');await page.getByLabel('n8n API key',{exact:true}).fill(key);await expect(page.getByRole('button',{name:'Save read-only connection',exact:true})).toBeDisabled();await page.getByRole('checkbox',{name:'Allow read-only access to my selected n8n workflows',exact:true}).check();await page.getByRole('button',{name:'Save read-only connection',exact:true}).click();
  await expect.poll(async()=>(await state(page)).n8n.configured).toBe(true);await expect(page.getByLabel('n8n API key',{exact:true})).toHaveValue('');expect(n8nCalls).toHaveLength(0);expect(JSON.stringify(await state(page))).not.toContain(key);expect((await state(page)).campaign.enabled).toBe(false);
- await page.getByRole('button',{name:'Automations',exact:true}).click();await workflow.getByRole('button',{name:'Refresh status',exact:true}).click();await expect(workflow.getByText('Active in n8n',{exact:true})).toBeVisible();await workflow.getByText('View observed status and history',{exact:true}).click();await expect(workflow.getByText('Execution fixtureExecution',{exact:true})).toBeVisible();expect(n8nCalls).toHaveLength(2);expect(n8nCalls.every(call=>call.method==='GET')).toBe(true);expect(n8nCalls[1].url).toContain('includeData=false');
+ await navigateTo(page,'Automations');await workflow.getByRole('button',{name:'Refresh status',exact:true}).click();await expect(workflow.getByText('Active in n8n',{exact:true})).toBeVisible();await workflow.getByText('View observed status and history',{exact:true}).click();await expect(workflow.getByText('Execution fixtureExecution',{exact:true})).toBeVisible();expect(n8nCalls).toHaveLength(2);expect(n8nCalls.every(call=>call.method==='GET')).toBe(true);expect(n8nCalls[1].url).toContain('includeData=false');
  await snapshot(page,testInfo,'n8n-observed-desktop.png');
  n8nNow+=6*60*1000;await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await expect(workflow.getByText('Stale observation',{exact:true})).toBeVisible();
  n8nFault=true;await workflow.getByRole('button',{name:'Refresh status',exact:true}).click();await expect(workflow.getByText('Status unavailable',{exact:true})).toBeVisible();await expect(workflow.getByText(/previous observation is retained below/)).toBeVisible();await expect(workflow.getByText('Execution fixtureExecution',{exact:true})).toBeVisible();
  n8nFault=false;n8nNow+=11*1000;n8nWorkflow={...n8nWorkflow,active:false};n8nExecutions={data:[],nextCursor:null};await workflow.getByRole('button',{name:'Refresh status',exact:true}).click();await expect(workflow.getByText('Inactive in n8n',{exact:true})).toBeVisible();await expect(workflow.getByText('No executions were returned in this bounded history view.',{exact:true})).toBeVisible();await expect(workflow.getByText(/whether a workflow is currently running/)).toBeVisible();
  n8nNow+=11*1000;n8nWorkflow={...n8nWorkflow,isArchived:true};await workflow.getByRole('button',{name:'Refresh status',exact:true}).click();await expect(workflow.getByText('Archived in n8n',{exact:true})).toBeVisible();
  await page.setViewportSize({width:320,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);for(const control of await page.locator('.external-workflow button,.n8n-connection button,.n8n-connection summary').all()){if(await control.isVisible())expect((await control.boundingBox()).height).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR);}await snapshot(page,testInfo,'n8n-archived-mobile320.png');
- const action=body=>page.request.post(`${hub.baseUrl}/api/action`,{headers:{Origin:hub.baseUrl},data:body});await action({action:'vaultLock'});await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await expect(workflow.getByText('Vault locked',{exact:true})).toBeVisible();await expect(workflow.getByRole('button',{name:'Refresh status',exact:true})).toBeDisabled();expect((await state(page)).automations.find(item=>item.executor==='n8n').scheduleOwner).toBe('n8n');await page.getByRole('button',{name:'Home',exact:true}).click();const observedEvent=page.locator('.home-recent li').filter({has:page.getByText('N8n observed',{exact:true})}).first();await expect(observedEvent).toContainText('Synthetic n8n workflow');
+ const action=body=>page.request.post(`${hub.baseUrl}/api/action`,{headers:{Origin:hub.baseUrl},data:body});await action({action:'vaultLock'});await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();await expect(workflow.getByText('Vault locked',{exact:true})).toBeVisible();await expect(workflow.getByRole('button',{name:'Refresh status',exact:true})).toBeDisabled();expect((await state(page)).automations.find(item=>item.executor==='n8n').scheduleOwner).toBe('n8n');await navigateTo(page,'Home');const observedEvent=page.locator('.home-recent li').filter({has:page.getByText('N8n observed',{exact:true})}).first();await expect(observedEvent).toContainText('Synthetic n8n workflow');
 });
 
 
@@ -523,7 +524,7 @@ test('quoted employer cap review and reached decisions preserve waiting work or 
   ctx.store.put('job',{...job,id:`synthetic-reservation-${scenario}`,identity:`${job.identity}|prior-${scenario}`,url:`https://fixture.example.invalid/example/prior-${scenario}`,title:'Synthetic prior role',posting:null,state:'uncertain',decisionId:null});
   const report=assessApplicationLimits({job,profile:ctx.store.get('profile','main'),jobs:ctx.store.list('job'),attempts:ctx.store.list('run'),userCap:3});expect(scenario==='review'?report.needsReview:report.projectedCount>report.effectiveCap).toBe(true);
   ctx.store.put('decision',{id:'writing-ui-decision',jobId:job.id,code:`application_limit_${scenario==='review'?'review':'reached'}`,type:'application_limit',state:'open',title:scenario==='review'?'Review the employer application-limit scope':'The employer application limit is reached',details:{report}});
-  await page.reload();await page.getByRole('button',{name:'Needs You',exact:true}).click();await chooseQuestion(page,'writing-ui-decision');const card=page.locator('.decision-card');
+  await page.reload();await navigateTo(page,'Needs You');await chooseQuestion(page,'writing-ui-decision');const card=page.locator('.decision-card');
   await expect(card.getByText(quote,{exact:true})).toBeVisible();await expect(card.getByRole('link',{name:'Read source posting',exact:true})).toHaveAttribute('href',job.url);await expect(card.getByRole('button',{name:'Retry after fixing',exact:true})).toHaveCount(0);await expect(card.locator('.limit-summary dd').first()).toHaveText(String(report.effectiveCap));expect(ctx.store.get('job',job.id).state).toBe('needs_you');
   await card.getByText(`Applications reserving this employer’s capacity (${report.reservations.length})`,{exact:true}).click();await expect(card.locator('.limit-reservations')).toContainText('Synthetic prior role');
   if(scenario==='review')await snapshot(page,testInfo,'application-cap-review-desktop.png');
@@ -536,11 +537,11 @@ test('quoted employer cap review and reached decisions preserve waiting work or 
 test('shared Home keeps actual work, exact questions and connections reachable',async({page},testInfo)=>{
  await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();
  await openGuide(page);await expect(page.locator('.home-process-steps li')).toHaveText(['Select rolesBrowse and choose internships','Check requirementsPosting, eligibility and rules','Prepare résuméYour exact application document','ApplyOnly under your enabled rules','Confirm receiptMatch evidence from the employer']);
- await expect(page.locator('.home-work-summary')).toHaveCount(0);await expect(page.locator('.home-process-exceptions')).toHaveCount(0);
- await page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name:'Automations',exact:true}).click();await page.getByRole('button',{name:'Link an n8n workflow',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Synthetic shared workflow');await page.getByLabel('Existing n8n workflow URL',{exact:true}).fill('https://n8n.example.invalid/workflow/sharedFixture');await page.getByRole('button',{name:'Connect workflow',exact:true}).click();
- await page.getByRole('button',{name:'Home',exact:true}).click();const linked=page.locator('.external-automation');await expect(linked).toHaveCount(1);await expect(linked.getByRole('link',{name:'Open in n8n'})).toHaveAttribute('href','https://n8n.example.invalid/workflow/sharedFixture');expect((await state(page)).campaign.enabled).toBe(false);
+ await expect(page.locator('.home-work-summary dt')).toHaveText(['Selected roles','Finished résumés','Confirmed receipts']);await expect(page.locator('.home-work-summary dd')).toHaveText(['0','0','0']);await expect(page.locator('.internship-automation')).toContainText('Campaign off');await expect(page.locator('.home-process-exceptions')).toHaveCount(0);
+ await navigateTo(page,'Automations');await page.getByRole('button',{name:'Link an n8n workflow',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Synthetic shared workflow');await page.getByLabel('Existing n8n workflow URL',{exact:true}).fill('https://n8n.example.invalid/workflow/sharedFixture');await page.getByRole('button',{name:'Connect workflow',exact:true}).click();
+ await navigateTo(page,'Home');const linked=page.locator('.external-automation');await expect(linked).toHaveCount(1);await expect(linked.getByRole('link',{name:'Open in n8n'})).toHaveAttribute('href','https://n8n.example.invalid/workflow/sharedFixture');expect((await state(page)).campaign.enabled).toBe(false);
  const ctx=hub.context(false);await ctx.engine.stop();await page.request.post(`${hub.baseUrl}/api/import/jobs`,{headers:{Origin:hub.baseUrl},data:{text:JSON.stringify([{url:'https://job-boards.greenhouse.io/sharedfixture/jobs/123',title:'Synthetic selected role',employer:'Synthetic employer'}])}});const job=ctx.store.list('job')[0];ctx.store.put('job',{...job,state:'needs_you'});ctx.store.put('decision',{id:'shared-home-decision',jobId:job.id,code:'account_access',state:'open',title:'Synthetic access review'});ctx.store.put('decision',{id:'superseded-home-decision',jobId:job.id,code:'package_review',state:'superseded',title:'Obsolete synthetic document review'});await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();
- await openGuide(page);await expect(page.locator('.home-work-summary')).toContainText('1 selected role');await expect(page.locator('.home-process-exceptions')).toContainText('Apply');await expect(page.locator('.home-question-list')).toContainText('Synthetic access review');await expect(page.locator('.home-question-list')).not.toContainText('Obsolete synthetic document review');
+ await openGuide(page);await expect(page.locator('.home-work-summary>div').filter({hasText:'Selected roles'}).getByRole('button')).toHaveText('1');await expect(page.locator('.home-process-exceptions')).toContainText('Apply');await expect(page.locator('.home-question-list')).toContainText('Synthetic access review');await expect(page.locator('.home-question-list')).not.toContainText('Obsolete synthetic document review');
  await snapshot(page,testInfo,'shared-home-populated-desktop.png');
  for(const width of [768,320,390]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);const question=page.locator('.home-process-exceptions button');await question.focus();await expect(question).toBeFocused();const box=await question.boundingBox(),nav=await page.locator('.studio-topbar').boundingBox();expect(box.y).toBeGreaterThanOrEqual(nav.y+nav.height-1);expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);expect(box.y+box.height).toBeLessThanOrEqual(844);await snapshot(page,testInfo,`shared-home-mobile${width}.png`);}
  await page.locator('.home-process-exceptions button').click();await expect(page.getByRole('heading',{name:'Synthetic access review',exact:true})).toBeFocused();await expect(page.locator('.decision-card')).toHaveCount(1);await expect(page.getByText('Obsolete synthetic document review',{exact:true})).toHaveCount(0);

@@ -1,3 +1,4 @@
+import {workspaceSection} from './navigation-helper.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -19,7 +20,7 @@ async function openDiscover(page){
  await page.goto(hub.launchUrl);
  await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Go to Applications',exact:true}).click();
- if(await page.getByLabel('Internship section',{exact:true}).isVisible())await page.getByLabel('Internship section',{exact:true}).selectOption('discover');else await page.locator('#workspace-tab-discover').click();
+ await workspaceSection(page,'discover');
  await expect(page.getByRole('heading',{name:'Discover',exact:true,level:1})).toBeVisible();
  await expect(page.locator('.jd-results-layout')).toHaveAttribute('aria-busy','false');
 }
@@ -74,7 +75,7 @@ test('search reaches beyond the first page, favorites persist and queuing stays 
  expect(hub.context(false).store.list('job')).toHaveLength(1);
  expect(hub.context(false).store.list('job')[0].state).toBe('imported');
  expect(hub.context(false).store.get('campaign','main').enabled).toBe(false);
- await page.reload();await page.getByRole('button',{name:'Go to Applications',exact:true}).click();await page.locator('#workspace-tab-discover').click();
+ await page.reload();await page.getByRole('button',{name:'Go to Applications',exact:true}).click();await workspaceSection(page,'discover');
  await page.getByRole('button',{name:/^Saved 1$/}).click();
  await expect(page.locator('.jd-job-card')).toHaveCount(1);
  await expect(page.locator('.jd-job-card')).toContainText('Photonics hardware internship');

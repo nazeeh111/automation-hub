@@ -1,3 +1,4 @@
+import {workspaceSection} from './navigation-helper.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -35,7 +36,7 @@ async function profileForm(page,name){
  await page.getByLabel('Application email',{exact:true}).fill('synthetic@example.invalid');
 }
 async function openImport(page,type='jobs'){
- if(type==='resumes')await page.getByRole('tab',{name:/Resumes/}).click();
+ if(type==='resumes')await workspaceSection(page,'resumes');
  await page.getByRole('button',{name:type==='jobs'?'Import jobs':'Import resumes',exact:true}).first().click();
 }
 

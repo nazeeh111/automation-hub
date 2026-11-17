@@ -187,8 +187,10 @@ export class Engine {
     });
   }
   resolve({decisionId,answer,writingReviews={}}) {
+    return this.store.transaction(()=>{
     const decision=this.store.get('decision',decisionId);if(!decision)throw fail('Decision not found',404);
     if(decision.state==='resolved')return decision;
+    if(decision.state!=='open')throw fail('This saved decision is no longer open. Refresh and review its current question.',409);
     if(answer===undefined||answer===null||answer==='')throw fail('Provide an answer or explicitly choose none',400);
     const job=this.job(decision.jobId);
     if(['uncertain_submission','manual_reconciliation'].includes(decision.code)) {
@@ -226,6 +228,7 @@ export class Engine {
     }
     const remaining=decision.details?.accountId?[...new Set([decision.jobId,...(decision.jobIds||[])])].filter(id=>id!==job.id):[];
     const saved=remaining.length?this.store.put('decision',{...decision,jobId:remaining[0],jobIds:remaining}):this.store.put('decision',{...decision,state:'resolved',answer,resolvedAt:now()});this.store.event(job.id,'decision_resolved',{decisionId:decision.id,code:decision.code});return saved;
+    });
   }
   recordOutcome({jobId,outcome,evidence}) {
     const job=this.job(jobId),profile=this.store.get('profile','main');

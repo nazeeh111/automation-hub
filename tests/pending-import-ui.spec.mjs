@@ -1,3 +1,4 @@
+import {workspaceSection} from './navigation-helper.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -23,7 +24,7 @@ test('a pending real resume read cannot dispatch after another tab switches to f
  const filename='Pending real workspace intent.md';let importDispatches=0;
  page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/import/resumes')importDispatches++;});
  await page.getByRole('button',{name:'Go to Applications',exact:true}).click();
- await page.locator('#workspace-tab-resumes').click();
+ await workspaceSection(page,'resumes');
  await page.getByRole('button',{name:'Import resumes',exact:true}).first().click();
  await page.evaluate(target=>{
   const original=FileReader.prototype.readAsDataURL;

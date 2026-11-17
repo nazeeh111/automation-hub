@@ -1,3 +1,4 @@
+import {navigateTo,workspaceSection} from './navigation-helper.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -28,10 +29,10 @@ for(const width of [1366,390])test(`clarification recovery preserves the earlier
   const old=ctx.store.list('decision').find(item=>item.type==='missing_fact');expect(old?.reasoningBinding).toBeTruthy();expect(ctx.store.get('job',id).packageId).toBe(earlier.id);expect(calls).toHaveLength(1);
   await page.getByRole('button',{name:'Refresh dashboard',exact:true}).click();
   await page.getByRole('button',{name:'Go to Applications',exact:true}).click();
-  if(width<700)await page.getByLabel('Internship section',{exact:true}).selectOption('settings');else await page.getByRole('tab',{name:'Settings',exact:true}).click();
+  await workspaceSection(page,'settings');
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();await page.getByLabel('Availability',{exact:true}).fill('July 2027');await page.getByRole('button',{name:'Save profile',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Candidate profile',exact:true})).toHaveCount(0);expect(ctx.store.get('profile','main').availability).toBe('July 2027');
-  await page.getByRole('button',{name:'Needs You',exact:true}).click();
+  await navigateTo(page,'Needs You');
   const choose=async()=>{const list=page.getByRole('navigation',{name:'Choose a saved question',exact:true});if(await list.isVisible())await list.getByRole('button').filter({hasText:question}).click();};
   await choose();const oldCard=page.locator(`[data-attention-id="${old.id}"]`);
   await oldCard.getByLabel('June 2027',{exact:true}).check();const rejected=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/action'&&response.request().postDataJSON()?.action==='resolveDecision');await oldCard.getByRole('button',{name:'Save answer',exact:true}).click();expect((await rejected).status()).toBe(409);

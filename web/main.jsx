@@ -1,9 +1,11 @@
 import React from 'react';
+import './fonts.css';
 import './tokens.css';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import RecoveryBoundary from './RecoveryBoundary.jsx';
 import './styles.css';
 import './studio.css';
+import './workbench.css';
 
 createRoot(document.getElementById('root')).render(<React.StrictMode><RecoveryBoundary nativeRoot><App /></RecoveryBoundary></React.StrictMode>);

@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-17",
+  "productSourceIdentity": "b0f5e04d1dc9a8aa2cf30c711a4c02a1ab0af4b36dc906d48fc6345901324724",
+  "data": "Curated synthetic fixtures, campaigns off. No live employer application or hiring outcome. Fresh built-in fixture state is described separately in docs/DEMO.md.",
+  "captures": [
+    {
+      "file": "application-document.png",
+      "sha256": "6c69c09c57d134567d21eff4afd789b0468f621bc1547c0f2938831fe69a920a",
+      "kind": "Unmodified actual application capture",
+      "data": "Curated synthetic fixtures; campaigns off; not first-use seed or live outcomes"
+    },
+    {
+      "file": "discovery.png",
+      "sha256": "f000d90e03a3fdea446d8a72deb32b5d990fb010153ccca3bbee2589cdbe6925",
+      "kind": "Unmodified actual application capture",
+      "data": "Curated synthetic fixtures; campaigns off; not first-use seed or live outcomes"
+    },
+    {
+      "file": "posting-text-comparison.png",
+      "sha256": "9b0f07aeef380eb6fdccfb33558aed573a6455db76e605f2ba138a444bb75585",
+      "kind": "Unmodified actual application capture",
+      "data": "Curated synthetic fixtures; campaigns off; not first-use seed or live outcomes"
+    },
+    {
+      "file": "needs-you.png",
+      "sha256": "f94c272f3e359375fd1fc405e92e0e256dd0783081f67b2b5493eb953564f712",
+      "kind": "Unmodified actual application capture",
+      "data": "Curated synthetic fixtures; campaigns off; not first-use seed or live outcomes"
+    }
+  ],
+  "editorialRenders": [
+    {
+      "file": "product-hero.png",
+      "width": 1520,
+      "height": 1182,
+      "sha256": "8a2cc0640181bdf72739985faf0a6ad1c95ea213a4d5fd5a7cd4ccc3f932a760",
+      "source": "product-hero.html"
+    },
+    {
+      "file": "social-preview.png",
+      "width": 1200,
+      "height": 630,
+      "sha256": "a31c3c4f58600bc93a556eef7e769c63e466fffa508c2196f5ae8681f54e0791",
+      "source": "social-preview.html"
+    }
+  ]
+}
