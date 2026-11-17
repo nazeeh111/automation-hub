@@ -14,9 +14,14 @@ concurrency:
 
 jobs:
   macos:
+    name: macOS ${{ matrix.lane }}
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [service, browser]
     runs-on: macos-15-intel
-    # Observed setup + serial service + browser stages can exceed 30min on Intel.
-    # Keep fixture deadlines unchanged; bound the complete verification job.
+    # Lanes own separate runners; a fixture failure does not cancel the other lane.
+    # Keep cold service fixtures serial and preserve application/test deadlines.
     timeout-minutes: 40
     env:
       HUB_SOFFICE_BIN: /Applications/LibreOffice.app/Contents/MacOS/soffice
@@ -42,15 +47,16 @@ jobs:
           brew install --cask libreoffice
       - name: Verify document renderer
         run: node scripts/check-renderer.mjs
-      # Avoid parallel cold LibreOffice and browser fixtures on this Intel runner.
-      # Keep the complete service suite serial without extending renderer deadlines.
+      # Avoid overlapping cold LibreOffice/browser service fixtures on one runner.
       - name: Check synthetic service workflows
+        if: matrix.lane == 'service'
         run: node --test --test-concurrency=1 tests/*.test.mjs
       - name: Check production build and browser workflows
+        if: matrix.lane == 'browser'
         run: npm run build && npm run test:e2e
 
       - name: Report browser failure context
-        if: failure()
+        if: failure() && matrix.lane == 'browser'
         run: |
           node --input-type=module <<'NODE'
           import {readdir,readFile,appendFile} from 'node:fs/promises';
@@ -67,6 +73,6 @@ jobs:
             const content=await readFile(file,'utf8');
             lines.push(`<details><summary>${escape(file)}</summary><pre>${escape(content.slice(0,16000))}${content.length>16000?'\n[Truncated]':''}</pre></details>`);
           }
-          if(!files.length)lines.push('No browser context was produced. Check the failed service or build step above.');
+          if(!files.length)lines.push("No browser context was produced. Check the failed step's log above.");
           await appendFile(process.env.GITHUB_STEP_SUMMARY,lines.join('\n\n')+'\n');
           NODE

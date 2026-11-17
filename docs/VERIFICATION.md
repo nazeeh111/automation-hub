@@ -8,7 +8,7 @@ npm run browser:install
 npm run check
 ```
 
-`npm test` exercises the actual Node services with disposable local stores. `npm run build` creates the production UI. `npm run test:e2e` drives that built UI through Chromium and Firefox. The checked-in GitHub Actions workflow runs the same service and browser coverage on macOS, with serial service fixtures to avoid overlapping cold document-renderer starts.
+`npm test` exercises the actual Node services with disposable local stores. `npm run build` creates the production UI. `npm run test:e2e` drives that built UI through Chromium and Firefox. The checked-in GitHub Actions workflow runs the same service and browser coverage on macOS, with service and browser coverage on separate runners. Service fixtures stay serial to avoid overlapping cold document-renderer starts; either lane can finish independently when the other fails.
 
 ## What the tests establish
 

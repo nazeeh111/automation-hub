@@ -28,12 +28,22 @@ document.getElementById('application-form').addEventListener('submit',event=>{ev
 </script></body></html>`;
 async function fixture(t,config={}){
  const context=await browser.newContext({serviceWorkers:'block'}),page=await context.newPage(),directory=await mkdtemp(join(tmpdir(),'hub-aria-choice-'));let denied=0;
+ t.after(async()=>{await context.close();await rm(directory,{recursive:true,force:true});});
  // Every browser request is fulfilled from this in-memory fixture or aborted.
  // No employer, existing app, DNS destination, account or external network is used.
  await context.route('**/*',route=>{if(route.request().url()===source)return route.fulfill({contentType:'text/html',body:html(config)});denied++;return route.abort();});
  await page.goto(source);page.setDefaultTimeout(1500);
+ const locate=page.locator.bind(page);
+ page.locator=(selector,...args)=>{
+  const locator=locate(selector,...args),click=locator.click.bind(locator);
+  locator.click=async(...options)=>{try{return await click(...options);}catch(error){t.diagnostic(JSON.stringify({operation:'Synthetic ARIA locator.click',selector,message:error.message}));throw error;}};
+  return locator;
+ };
+ // Establish fixture actionability before timing the actual choice operations.
+ // Trial performs readiness checks without opening or answering the widget.
+ await page.locator('#question').click({trial:true,timeout:5000});
+ assert.equal(await page.evaluate(()=>window.opens),0);assert.equal(await page.evaluate(()=>window.optionClicks),0);assert.equal(await page.evaluate(()=>window.searchInputs),0);
  const adapter=new BrowserAdapter({directory,allowLocal:true,fixturePortal:'greenhouse'});adapter.open=async()=>({context,page,portal:'greenhouse',accountContext:null});adapter.closeContext=async()=>{};
- t.after(async()=>{await context.close();await rm(directory,{recursive:true,force:true});});
  return {page,adapter,context,directory,denied:()=>denied};
 }
 async function questions(f,answers={}){try{await f.adapter.fillPage(f.page,profile(answers),{postingHash:'posting'},()=>{});assert.fail('Expected missing questions');}catch(error){assert.equal(error.code,'form_questions',error.message);return error.details.questions;}}
