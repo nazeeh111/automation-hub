@@ -28,7 +28,7 @@ function retainedOutcome(current,job,profile) {
   if(current.revision===job.revision||!['submitted','interview','assessment','rejected','offer','closed'].includes(current.state))return false;
   return (current.evidence||[]).some(e=>e.jobId===job.id&&e.identity===job.identity&&e.employer===job.employer&&e.title===job.title&&String(e.email).toLowerCase()===String(profile?.email).toLowerCase()&&(e.type==='employer_email'&&e.source==='authorized_inbox'&&e.candidateId===(profile?.id||'main')||e.type==='candidate_attested_receipt'||e.type==='employer_confirmation'&&e.candidateId===(profile?.id||'main')));
 }
-function recordedApplicationOutcome(store,job,profile) {
+export function recordedApplicationOutcome(store,job,profile) {
   const scoped=(job.evidence||[]).filter(e=>e.jobId===job.id&&e.identity===job.identity&&e.employer===job.employer&&e.title===job.title&&(e.type==='candidate_attested_receipt'&&(!e.candidateId||e.candidateId===(profile?.id||'main'))||['employer_confirmation','employer_email'].includes(e.type)&&e.candidateId===(profile?.id||'main')&&(e.type!=='employer_email'||e.source==='authorized_inbox')));
   const evidence=scoped.filter(e=>String(e.email).toLowerCase()===String(profile?.email).toLowerCase());
   if(!evidence.length&&scoped.length)return {evidence:scoped[0],outcome:null};
@@ -233,11 +233,13 @@ export class Engine {
     if(!evidence?.url||!evidence?.reference||!evidence?.employer||!evidence?.title||!evidence?.email)throw fail('Include the receipt URL, reference, employer, role and application email',400);
     const u=new URL(evidence.url);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)throw fail('Receipt URL is invalid',400);
     if(evidence.employer!==job.employer||evidence.title!==job.title||String(evidence.email).toLowerCase()!==String(profile.email).toLowerCase())throw fail('The receipt does not match this employer, role and candidate',400);
-    const recorded={...evidence,id:randomUUID(),type:'candidate_attested_receipt',outcome,candidateId:profile.id||'main',observedAt:now(),jobId:job.id,identity:job.identity,fixture:this.demo,documentsVerified:false};
-    // Candidate-attested evidence is visible as such; it is never an automatically confirmed submission.
-    const saved=this.store.put('job',{...job,state:outcome,nextAction:outcome==='submitted'?'Await employer response':'Review the employer response',evidence:[...(job.evidence||[]),recorded],submissionConfirmation:job.submissionConfirmation||'candidate_attested',revision:(job.revision||0)+1});
-    for(const decision of this.store.list('decision'))if((decision.jobId===job.id||decision.jobIds?.includes(job.id))&&decision.state==='open'){const remaining=[...new Set([decision.jobId,...(decision.jobIds||[])])].filter(id=>id!==job.id);if(decision.details?.accountId&&remaining.length)this.store.put('decision',{...decision,jobId:remaining[0],jobIds:remaining});else this.store.put('decision',{...decision,state:'resolved',answer:'Receipt recorded',resolvedAt:now()});}
-    this.store.event(job.id,'outcome_recorded',{outcome,evidenceId:recorded.id,source:'candidate_attested'});return saved;
+    return this.store.transaction(()=>{
+      const recorded={...evidence,id:randomUUID(),type:'candidate_attested_receipt',outcome,candidateId:profile.id||'main',observedAt:now(),jobId:job.id,identity:job.identity,fixture:this.demo,documentsVerified:false};
+      // Candidate-attested evidence is visible as such; it is never an automatically confirmed submission.
+      const saved=this.store.put('job',{...job,state:outcome,nextAction:outcome==='submitted'?'Await employer response':'Review the employer response',evidence:[...(job.evidence||[]),recorded],submissionConfirmation:job.submissionConfirmation||'candidate_attested',revision:(job.revision||0)+1});
+      for(const decision of this.store.list('decision'))if((decision.jobId===job.id||decision.jobIds?.includes(job.id))&&decision.state==='open'){const remaining=[...new Set([decision.jobId,...(decision.jobIds||[])])].filter(id=>id!==job.id);if(decision.details?.accountId&&remaining.length)this.store.put('decision',{...decision,jobId:remaining[0],jobIds:remaining});else this.store.put('decision',{...decision,state:'resolved',answer:'Receipt recorded',resolvedAt:now()});}
+      this.store.event(job.id,'outcome_recorded',{outcome,evidenceId:recorded.id,source:'candidate_attested'});return saved;
+    });
   }
   async tick() {
     if(this.stopping)return {busy:this.busy};

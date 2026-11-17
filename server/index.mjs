@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Store } from './store.mjs';
-import { Engine } from './engine.mjs';
+import { Engine,recordedApplicationOutcome } from './engine.mjs';
 import { DemoAdapter,portalFor,postingIdentity,validateDestination } from './adapters.mjs';
 import { ResumeService } from './resumes.mjs';
 import { ModelService } from './model.mjs';
@@ -104,7 +104,25 @@ export async function createHub({directory=process.env.HUB_DATA_DIR||path.join(h
  }
  async function resolveOwn(ctx,body){const {store}=ctx;const d=store.get('decision',body.decisionId);if(!d)return null;if(d.state==='resolved'&&d.type!=='missing_fact')return d;
   if(d.type==='fact_conflict'){const answer=String(body.answer||'');if(!answer)throw fail('Choose a source passage or keep this conflict unresolved.');const chosen=store.list('fact').find(f=>d.factIds.includes(f.id)&&f.text===answer);store.transaction(()=>{for(const id of d.factIds){const f=store.get('fact',id);if(f&&chosen)store.put('fact',{...f,conflict:false,suppressed:id!==chosen.id,confirmedAt:now()});}store.put('decision',{...d,state:chosen?'resolved':'open',answer,resolvedAt:chosen?now():null});});return {resolved:Boolean(chosen)};}
-  if(d.type==='missing_fact'){const job=store.get('job',d.jobId);if(!job)throw fail('Application not found.',404);if(!reasoningDecisionCurrent(store,d,job))throw fail('This clarification belongs to an earlier candidate, posting or resume library. Prepare this application again and answer its current question.',409);if(typeof body.answer!=='string'||!body.answer.trim()||body.answer.length>20000)throw fail('Provide a text answer or choose none.');return store.transaction(()=>{const answeredAt=now();store.put('decision',{...d,state:'resolved',answer:body.answer,resolvedAt:answeredAt});const remaining=store.list('decision').some(x=>x.jobId===job.id&&x.type==='missing_fact'&&x.state==='open');store.put('job',{...job,reasoningAnswers:{...job.reasoningAnswers,[d.question]:body.answer},reasoningAnswerBindings:{...job.reasoningAnswerBindings,[d.question]:{...d.reasoningBinding,answerHash:reasoningDigest(body.answer),answeredAt}},state:job.state==='manual'?'manual':remaining?'needs_you':'imported',preparationRequested:job.state==='manual'?false:!remaining,revision:job.revision+1,nextAction:job.state==='manual'?'Your answer is saved; reconcile manual work before resuming':remaining?'Answer remaining questions':'Resume with your scoped answers'});return {resolved:true};});}return null;
+  if(d.type==='missing_fact'){
+   const job=store.get('job',d.jobId);
+   if(!job)throw fail('Application not found.',404);
+   const acceptsPreparation=['imported','failed','ready','needs_you','manual'].includes(job.state);
+   const hasRecordedEffect=job.priorApplicationDetected===true
+    ||['employer_confirmed','candidate_attested','fixture'].includes(job.submissionConfirmation)
+    ||recordedApplicationOutcome(store,job,store.get('profile','main'))
+    ||store.get('run',job.activeAttemptId||'')?.dispatchedAt;
+   if(!acceptsPreparation||hasRecordedEffect)throw fail('This application is no longer awaiting a preparation answer. Review its current state and saved outcome before continuing.',409);
+   if(!reasoningDecisionCurrent(store,d,job))throw fail('This clarification belongs to an earlier candidate, posting or resume library. Prepare this application again and answer its current question.',409);
+   if(typeof body.answer!=='string'||!body.answer.trim()||body.answer.length>20000)throw fail('Provide a text answer or choose none.');
+   return store.transaction(()=>{
+    const answeredAt=now();
+    store.put('decision',{...d,state:'resolved',answer:body.answer,resolvedAt:answeredAt});
+    const remaining=store.list('decision').some(x=>x.jobId===job.id&&x.type==='missing_fact'&&x.state==='open');
+    store.put('job',{...job,reasoningAnswers:{...job.reasoningAnswers,[d.question]:body.answer},reasoningAnswerBindings:{...job.reasoningAnswerBindings,[d.question]:{...d.reasoningBinding,answerHash:reasoningDigest(body.answer),answeredAt}},state:job.state==='manual'?'manual':remaining?'needs_you':'imported',preparationRequested:job.state==='manual'?false:!remaining,revision:job.revision+1,nextAction:job.state==='manual'?'Your answer is saved; reconcile manual work before resuming':remaining?'Answer remaining questions':'Resume with your scoped answers'});
+    return {resolved:true};
+   });
+  }return null;
  }
  async function action(ctx,body,metadata={}){assertAccepting();const {store,engine,resumes,model,connections,writing,supporting}=ctx;
   if(body.action==='discoveryRegisterSource')return publicDocument(ctx.discovery.registerSource(body));
