@@ -45,9 +45,9 @@ async function noDispatch(t,directory){
 }
 
 test('contained resources and public web/email hyperlinks survive namespace aliases, single quotes and XML entities',()=>{
- const links=['https://example.invalid/sensor?one=1&two=2#result','mailto:alex@example.invalid'],f=fixture({links,prefix:'p',quote:"'"}),bytes=f.bytes();
+ const links=['https://example.invalid/sensor?one=1&two=2#result','mailto:alex@example.invalid'],f=fixture({links,prefix:'p',quote:"'"});
  f.files['word/_rels/document.xml.rels']=strToU8(strFromU8(f.files['word/_rels/document.xml.rels']).replace('media/image.png','media/ima&#x67;e.png'));
- const result=assertDocxResources(f.bytes());assert.deepEqual(result.hyperlinks,links);assert.equal(result.relationships,5);assert.equal(hash(bytes),hash(fixture({links,prefix:'p',quote:"'"}).bytes()));
+ const bytes=f.bytes(),before=Buffer.from(bytes),result=assertDocxResources(bytes);assert.deepEqual(result.hyperlinks,links);assert.equal(result.relationships,5);assert.deepEqual(bytes,before,'Resource validation must preserve the exact input archive bytes');
 });
 test('external image references hold regardless of quotes, namespace prefix or character references',()=>{
  for(const target of ['file:///owned/synthetic.png','http://127.0.0.1:12345/synthetic.png']){
