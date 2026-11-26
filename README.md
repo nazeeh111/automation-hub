@@ -8,7 +8,7 @@ In this executed synthetic case, a finished PDF and both prepared packages have 
 
 <picture><source media="(max-width: 600px)" srcset="docs/presentation/binding-mobile.svg"><img src="docs/presentation/binding.svg" alt="An identical synthetic PDF crosses three actual states: reviewed against posting A, held when posting B arrives, then prepared and explicitly reviewed against B. The old review request is refused with HTTP 409." width="100%"></picture>
 
-[Inspect the recorded case](docs/presentation/README.md) · [Download the complete reader](docs/presentation/retained-review.zip) · [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
+[Inspect the recorded case](docs/presentation/README.md) · [Download the complete reader](https://raw.githubusercontent.com/nazeeh111/automation-hub/f3cab2df853056b68c1b2c5d209b0b2c97d49d0b/docs/presentation/retained-review.zip) · [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
 
 The source comparison below is the actual running application with fictional people and an injected local employer adapter. It uses an isolated workspace, not a real account or the fresh built-in seed. The retained approval is historical; the posting hold is current. No live application or hiring outcome is shown.
 
