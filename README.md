@@ -1,20 +1,16 @@
 # Automation Hub
 
-**Your internship search, with the evidence still attached.** Save roles, retain original résumés, review exact employer questions and keep prepared documents tied to the posting they use. A local, macOS-first workbench with human review.
+**A local internship application workbench for macOS.** Save roles, review résumés and employer questions, and see which posting a prepared document used.
 
-### Same PDF. New posting. Fresh review.
+## The posting changed. The PDF didn’t.
 
-In this executed synthetic case, a finished PDF and both prepared packages have **identical bytes**. A newer posting changes the preferred skills and deadline. The earlier document stays available, but its old review request returns **409 / posting_changed**. Preparing and reviewing a new package binds those same PDF bytes to the new source. Campaign off; zero model calls and zero submissions.
+In this synthetic run, the posting changed its preferred skills and deadline. The old review returned **409 / posting_changed**. A fresh review approved the same PDF bytes against the updated posting. The campaign stayed off, with zero model calls or submissions.
 
-<picture><source media="(max-width: 600px)" srcset="docs/presentation/binding-mobile.svg"><img src="docs/presentation/binding.svg" alt="An identical synthetic PDF crosses three actual states: reviewed against posting A, held when posting B arrives, then prepared and explicitly reviewed against B. The old review request is refused with HTTP 409." width="100%"></picture>
+[Inspect the two posting records and PDF](docs/presentation/README.md) · [Download the offline reader](https://raw.githubusercontent.com/nazeeh111/automation-hub/f3cab2df853056b68c1b2c5d209b0b2c97d49d0b/docs/presentation/retained-review.zip)
 
-[Inspect the recorded case](docs/presentation/README.md) · [Download the complete reader](https://raw.githubusercontent.com/nazeeh111/automation-hub/f3cab2df853056b68c1b2c5d209b0b2c97d49d0b/docs/presentation/retained-review.zip) · [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
+<picture><source media="(max-width: 600px)" srcset="docs/presentation/posting-phone.png"><img src="docs/presentation/posting-desktop.png" alt="Actual Automation Hub review showing the older posting used for the saved document, the changed posting, and the Prepare updated posting action." width="100%"></picture>
 
-The source comparison below is the actual running application with fictional people and an injected local employer adapter. It uses an isolated workspace, not a real account or the fresh built-in seed. The retained approval is historical; the posting hold is current. No live application or hiring outcome is shown.
-
-<picture><source media="(max-width: 600px)" srcset="docs/presentation/posting-phone.png"><img src="docs/presentation/posting-desktop.png" alt="Actual Automation Hub source review in an isolated synthetic workspace. The saved document uses the earlier posting; a newer posting changes its text and deadline, and Prepare updated posting is offered." width="100%"></picture>
-
-**Local storage · Human review · Optional AI · MIT source**
+The screenshot shows the hold in the running app with fictional data and a local employer fixture. The green approval belongs to the earlier posting. [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
 
 ## One role. Its whole story.
 
