@@ -10,7 +10,7 @@ In this synthetic run, the posting changed its preferred skills and deadline. Th
 
 <picture><source media="(max-width: 600px)" srcset="docs/presentation/posting-phone.png"><img src="docs/presentation/posting-desktop.png" alt="Actual Automation Hub review showing the older posting used for the saved document, the changed posting, and the Prepare updated posting action." width="100%"></picture>
 
-The screenshot shows the running app in an isolated workspace with fictional data and a local employer fixture. [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
+The screenshot shows the hold in the running app with fictional data and a local employer fixture. The green approval belongs to the earlier posting. [Run locally](#run-locally) · [Take the fixture tour](docs/DEMO.md)
 
 ## One role. Its whole story.
 
